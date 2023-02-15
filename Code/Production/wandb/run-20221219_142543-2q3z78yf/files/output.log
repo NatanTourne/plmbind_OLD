@@ -1,0 +1,85 @@
+/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loggers/wandb.py:352: UserWarning: There is a wandb run already in progress and newly created instances of `WandbLogger` will reuse this run. If this is not desired, call `wandb.finish()` before instantiating `WandbLogger`.
+  rank_zero_warn(
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/callbacks/model_checkpoint.py:616: UserWarning: Checkpoint directory /home/natant/Thesis/Data/Model_checkpoints exists and is not empty.
+  rank_zero_warn(f"Checkpoint directory {dirpath} exists and is not empty.")
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0,1,2]
+  | Name          | Type              | Params
+----------------------------------------------------
+0 | loss_function | BCEWithLogitsLoss | 0
+1 | train_acc     | BinaryAccuracy    | 0
+2 | val_acc       | BinaryAccuracy    | 0
+3 | test_acc      | BinaryAccuracy    | 0
+4 | train_AUROC   | MultilabelAUROC   | 0
+5 | val_AUROC     | MultilabelAUROC   | 0
+6 | test_AUROC    | MultilabelAUROC   | 0
+7 | embedding     | Embedding         | 20
+8 | conv_net      | Sequential        | 82.0 M
+----------------------------------------------------
+82.0 M    Trainable params
+20        Non-trainable params
+82.0 M    Total params
+327.916   Total estimated model params size (MB)
+/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:236: PossibleUserWarning: The dataloader, val_dataloader 0, does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` (try 12 which is the number of cpus on this machine) in the `DataLoader` init to improve performance.
+  rank_zero_warn(
+
+Sanity Checking DataLoader 0:  50%|█████████████████████████████████████████████████████████████████████████▌                                                                         | 1/2 [00:00<00:00,  1.25it/s]
+/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/torchmetrics/utilities/prints.py:36: UserWarning: No positive samples in targets, true positive value should be meaningless. Returning zero tensor in true positive score
+  warnings.warn(*args, **kwargs)
+Traceback (most recent call last):
+  File "/home/natant/Thesis/Code/Production/Run_DNA_Model.py", line 402, in <module>
+    trainer.fit(DNA_model, datamodule=remap_datamodule)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 696, in fit
+    self._call_and_handle_interrupt(
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 650, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 735, in _fit_impl
+    results = self._run(model, ckpt_path=self.ckpt_path)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1166, in _run
+    results = self._run_stage()
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1252, in _run_stage
+    return self._run_train()
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1274, in _run_train
+    self._run_sanity_check()
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1343, in _run_sanity_check
+    val_loop.run()
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loops/loop.py", line 200, in run
+    self.advance(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loops/dataloader/evaluation_loop.py", line 155, in advance
+    dl_outputs = self.epoch_loop.run(self._data_fetcher, dl_max_batches, kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loops/loop.py", line 200, in run
+    self.advance(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loops/epoch/evaluation_epoch_loop.py", line 127, in advance
+    batch = next(data_fetcher)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/utilities/fetching.py", line 184, in __next__
+    return self.fetching_function()
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/utilities/fetching.py", line 273, in fetching_function
+    return self.move_to_device(batch)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/utilities/fetching.py", line 288, in move_to_device
+    batch = self.batch_to_device(batch)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1704, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/strategies/strategy.py", line 253, in batch_to_device
+    return model._apply_batch_transfer_handler(batch, device=device, dataloader_idx=dataloader_idx)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/core/module.py", line 341, in _apply_batch_transfer_handler
+    batch = call_hook("transfer_batch_to_device", batch, device, dataloader_idx)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/core/module.py", line 335, in call_hook
+    return trainer_method(hook_name, *args)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1550, in _call_lightning_module_hook
+    output = fn(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/core/hooks.py", line 672, in transfer_batch_to_device
+    return move_data_to_device(batch, device)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/utilities/apply_func.py", line 358, in move_data_to_device
+    return apply_to_collection(batch, dtype=dtype, function=batch_to)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/utilities/apply_func.py", line 121, in apply_to_collection
+    v = apply_to_collection(
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/utilities/apply_func.py", line 121, in apply_to_collection
+    v = apply_to_collection(
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/utilities/apply_func.py", line 99, in apply_to_collection
+    return function(data, *args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/utilities/apply_func.py", line 351, in batch_to
+    data_output = data.to(device, **kwargs)
+RuntimeError: CUDA out of memory. Tried to allocate 42.00 MiB (GPU 0; 10.91 GiB total capacity; 9.87 GiB already allocated; 18.19 MiB free; 10.16 GiB reserved in total by PyTorch) If reserved memory is >> allocated memory try setting max_split_size_mb to avoid fragmentation.  See documentation for Memory Management and PYTORCH_CUDA_ALLOC_CONF

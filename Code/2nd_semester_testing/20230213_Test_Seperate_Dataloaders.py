@@ -21,12 +21,10 @@ wandb_logger.experiment.config["Model"] = "Full"
 sample_window_size = 1024
 resolution = 128
 
-# TFs included in the training dataset
+# TF that should be used in the model
 TF_list = ['ZNF143', 'ZNF274', 'ZNF24', 'ZNF18']
 
-# Create datamodule:
-    # Seperate files for train, val, test
-    # Protein embeddings are now specified (multiple sizes are possible)
+# Create datamodule
 remap_datamodule = ReMapDataModule_SEPERATE_FILES(
     train_loc="/home/natant/Thesis/Data/ReMap_TRAIN_TEST_SPLIT/remap_train.h5t",
     val_loc="/home/natant/Thesis/Data/ReMap_TRAIN_TEST_SPLIT/remap_val_short.h5t",
@@ -64,7 +62,6 @@ checkpoint_callback = ModelCheckpoint(
     )
 
 
-# Create Trainer
 trainer = pl.Trainer(
     max_epochs = 5, 
     accelerator = "gpu", 
@@ -76,27 +73,16 @@ trainer = pl.Trainer(
     callbacks=[checkpoint_callback],
     logger = wandb_logger
     )
-
-# Fit model
 trainer.fit(Full_model, datamodule=remap_datamodule)
-
-# Test Model
 trainer.test(Full_model, datamodule=remap_datamodule)
-
-# Save checkpoint
 trainer.save_checkpoint('/home/natant/Thesis/Data/Model_checkpoints/Full-model-'+date+'.ckpt')
 
-### PREDICTION ###
-# Specifiy the TFs for prediction (Include one of the training data as sanity check)
+# PREDICTION
 TF_predict_list =  ['ZNF398', 'ZNF207', 'ZNF18']
-
-# Setup the datamodule for prediction: predict for "train", "test" or "val" datasplit
 remap_datamodule.predict_setup(TF_predict_list, "test")
 
-# Do the prediction
-preds = trainer.predict(Full_model, datamodule=remap_datamodule)
 
-# This is still manual because of the issue with batch sizes, can now be simplified similar to the other metrics ##!! TODO
+preds = trainer.predict(Full_model, datamodule=remap_datamodule)
 from torchmetrics.classification import MultilabelAUROC
 AUROC_test = MultilabelAUROC(num_labels=len(TF_predict_list), average='none')
 targets_list = []

@@ -1,0 +1,113 @@
+{
+    "os": "Linux-4.15.0-142-generic-x86_64-with-glibc2.23",
+    "python": "3.10.6",
+    "heartbeatAt": "2022-12-19T13:25:43.720106",
+    "startedAt": "2022-12-19T13:25:43.173918",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/home/natant/Thesis/Code/Production/Run_DNA_Model.py",
+    "codePath": "Code/Production/Run_DNA_Model.py",
+    "git": {
+        "remote": "https://github.com/NatanTourne/Thesis.git",
+        "commit": "126df1212743855b64ac322dff743739829a4bdf"
+    },
+    "email": "natan.tourne@gmail.com",
+    "root": "/home/natant/Thesis",
+    "host": "kermitgpu-01",
+    "username": "natant",
+    "executable": "/home/natant/.conda/envs/Thesis/bin/python",
+    "cpu_count": 6,
+    "cpu_count_logical": 12,
+    "cpu_freq": {
+        "current": 1911.3421666666666,
+        "min": 1200.0,
+        "max": 3900.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1790.245,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 3073.037,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 1328.1,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 1223.282,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 1740.285,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 2353.475,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 1685.909,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 3057.628,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 1326.987,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 1275.874,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 1734.244,
+            "min": 1200.0,
+            "max": 3900.0
+        },
+        {
+            "current": 2347.04,
+            "min": 1200.0,
+            "max": 3900.0
+        }
+    ],
+    "disk": {
+        "total": 402.3267059326172,
+        "used": 280.53692626953125
+    },
+    "gpu": "NVIDIA Tesla K40c",
+    "gpu_count": 3,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA Tesla K40c",
+            "memory_total": 11996954624
+        },
+        {
+            "name": "NVIDIA GeForce GTX 1080 Ti",
+            "memory_total": 11719409664
+        },
+        {
+            "name": "NVIDIA GeForce GTX 1080 Ti",
+            "memory_total": 11721506816
+        }
+    ],
+    "memory": {
+        "total": 62.827571868896484
+    }
+}
