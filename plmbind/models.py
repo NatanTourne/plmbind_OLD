@@ -17,6 +17,7 @@ class FullTFModel(pl.LightningModule):
         self,
         seq_len,
         prot_embedding_dim,
+        TF_list,
         num_classes,
         num_DNA_filters=20,
         num_prot_filters=20,
@@ -31,6 +32,7 @@ class FullTFModel(pl.LightningModule):
     ):
         super(FullTFModel, self).__init__()
 
+        self.TF_list = TF_list
         # Define metrics and loss function
         self.loss_function = nn.BCEWithLogitsLoss()
         self.train_acc = BinaryAccuracy(compute_on_step=False)
@@ -45,6 +47,11 @@ class FullTFModel(pl.LightningModule):
         self.val_AUROC = MultilabelAUROC(
             num_labels=num_classes,
             average='macro',
+            compute_on_step=False
+            )
+        self.val_AUROC_all = MultilabelAUROC(
+            num_labels=num_classes,
+            average='none',#'macro',
             compute_on_step=False
             )
         self.test_AUROC = MultilabelAUROC(
@@ -133,7 +140,7 @@ class FullTFModel(pl.LightningModule):
         return x_product
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=1e-5)
         return optimizer
 
     def training_step(self, train_batch, batch_idx):
@@ -174,6 +181,10 @@ class FullTFModel(pl.LightningModule):
     
         self.val_AUROC(y_hat_sigmoid, y)
         self.log('val_AUROC', self.val_AUROC, on_step=False, on_epoch=True, batch_size=1000)
+        
+        all_AUROC = self.val_AUROC_all(y_hat_sigmoid,y)
+        all_AUROC_dict = dict([(key, value) for key, value in zip(self.TF_list, all_AUROC)])
+        self.log_dict(all_AUROC_dict, on_step=False, on_epoch=True, batch_size=1000)
         return loss
 
     def predict_step(self, batch, batch_idx):
@@ -273,7 +284,6 @@ class MultilabelModel(pl.LightningModule):
         y_hat = self(x_DNA, x_prot)
         loss = self.loss_function(y_hat, y)
         self.log('train_loss', loss)
-        
         y_hat_sigmoid = torch.sigmoid(y_hat)
         self.train_acc(y_hat_sigmoid, y)
         self.log('train_acc', self.train_acc, on_step=False, on_epoch=True, batch_size=1000)

@@ -1,3 +1,4 @@
+from re import I
 from h11 import Data
 import numpy as np
 import h5torch
@@ -5,18 +6,20 @@ import torch
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split
 from h5torch.dataset import apply_dtype
-
+import random
 
 class RemapDataset(h5torch.Dataset):
     def __init__(
         self,
         path,
         TF_list,
+        TF_batch_size,
         embeddings,
         indices_to_sample,
         window_size=1024,
         resolution=128
     ):
+        self.TF_batch_size=TF_batch_size
         self.f = h5torch.File(path)
         self.indices = indices_to_sample
         self.window_size = window_size
@@ -43,6 +46,21 @@ class RemapDataset(h5torch.Dataset):
         return len(self.indices)
 
     def __getitem__(self, index):
+        # SAMPLE TFs (Too many cause memory issues)
+        Used_TFs = []
+        Used_index = []
+        Used_embeddings = []
+        if self.TF_batch_size == 0:
+            Used_TFs = self.TF_list[:]
+            Used_index = self.protein_index_list[:]
+            Used_embeddings = self.embedding_list[:]
+        else:
+            samples = random.sample(range(len(self.TF_list)), self.TF_batch_size)
+            Used_TFs = [self.TF_list[i] for i in samples]
+            Used_index = [self.protein_index_list[i] for i in samples]
+            Used_embeddings = [self.embedding_list[i] for i in samples]
+        
+        
         start_ix = self.indices[index]
         end_ix = start_ix + self.window_size
 
@@ -71,7 +89,7 @@ class RemapDataset(h5torch.Dataset):
             labels[peaks_prot_sliced[indices][:, None], slices_] = 1
 
         y = torch.tensor(labels)
-        y = y[self.protein_index_list, self.start_position_offset:self.stop_position_offset]
+        y = y[Used_index, self.start_position_offset:self.stop_position_offset]
         # y = (y.sum(-1) != 0).astype(torch.float32)
         y = (y.sum(-1) != 0).type(torch.float32)
         # https://pytorch.org/docs/stable/generated/torch.Tensor.unfold.html
@@ -82,7 +100,7 @@ class RemapDataset(h5torch.Dataset):
         #         step = self.label_bin_window_step
         #         ).sum(-1) != 0).to(y)
 
-        return DNA, self.embedding_list, y
+        return DNA, Used_embeddings, y
     
 class ReMapDataModule(pl.LightningDataModule):
     def __init__(
@@ -91,6 +109,7 @@ class ReMapDataModule(pl.LightningDataModule):
         val_loc,
         test_loc,
         TF_list,
+        TF_batch_size=0,
         window_size=1024,
         resolution_factor=128,
         batch_size: int = 32,
@@ -104,6 +123,7 @@ class ReMapDataModule(pl.LightningDataModule):
         self.window_size = window_size
         self.resolution_factor = resolution_factor
         self.TF_list = TF_list
+        self.TF_batch_size = TF_batch_size
         self.embeddings = embeddings
         # TRAIN DATA
         ## GET INDICES
@@ -120,6 +140,7 @@ class ReMapDataModule(pl.LightningDataModule):
         self.train_data = RemapDataset(
             self.train_loc,
             TF_list=TF_list,
+            TF_batch_size = self.TF_batch_size,
             indices_to_sample=self.positions_to_sample_train,
             window_size=window_size,
             resolution=resolution_factor,
@@ -141,6 +162,7 @@ class ReMapDataModule(pl.LightningDataModule):
         self.val_data = RemapDataset(
             self.val_loc,
             TF_list=TF_list,
+            TF_batch_size = self.TF_batch_size,
             indices_to_sample=self.positions_to_sample_val,
             window_size=window_size,
             resolution=resolution_factor,
@@ -162,6 +184,7 @@ class ReMapDataModule(pl.LightningDataModule):
         self.test_data = RemapDataset(
             self.test_loc,
             TF_list=TF_list,
+            TF_batch_size = self.TF_batch_size,
             indices_to_sample=self.positions_to_sample_test,
             window_size=window_size,
             resolution=resolution_factor,
@@ -171,13 +194,13 @@ class ReMapDataModule(pl.LightningDataModule):
         pass
             
     def train_dataloader(self):
-        return DataLoader(self.train_data, batch_size=self.batch_size)
+        return DataLoader(self.train_data, batch_size=self.batch_size) #, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_data, batch_size=self.batch_size)
+        return DataLoader(self.val_data, batch_size=self.batch_size, shuffle=True)
 
     def test_dataloader(self):
-        return DataLoader(self.test_data, batch_size=self.batch_size)
+        return DataLoader(self.test_data, batch_size=self.batch_size, shuffle=True)
 
 
     def predict_setup(self, Predict_TF, Data_split):
@@ -195,6 +218,7 @@ class ReMapDataModule(pl.LightningDataModule):
         self.predict_data = RemapDataset(
             self.pred_loc,
             TF_list=Predict_TF,
+            TF_batch_size=0,
             indices_to_sample=self.positions_to_sample_pred,
             window_size=self.window_size,
             resolution=self.resolution_factor,

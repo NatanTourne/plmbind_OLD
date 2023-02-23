@@ -140,3 +140,13 @@ wandb/*
 plmbind/scripts/wandb/*
 plmbind/scripts/wandb
 
+lightning_logs/version_0/events.out.tfevents.1677068670.kermitgpu-01.10396.0
+lightning_logs/version_0/hparams.yaml
+lightning_logs/version_1/events.out.tfevents.1677068689.kermitgpu-01.10625.0
+lightning_logs/version_1/events.out.tfevents.1677069158.kermitgpu-01.10625.1
+lightning_logs/version_1/hparams.yaml
+lightning_logs/version_2/events.out.tfevents.1677069423.kermitgpu-01.14275.0
+lightning_logs/version_2/events.out.tfevents.1677070026.kermitgpu-01.14275.1
+lightning_logs/version_2/hparams.yaml
+plmbind/scripts/lightning_logs/version_0/events.out.tfevents.1677070354.kermitgpu-01.18690.0
+plmbind/scripts/lightning_logs/version_0/hparams.yaml

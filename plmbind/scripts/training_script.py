@@ -20,16 +20,16 @@ wandb.init(project="Thesis_experiments", entity="ntourne")
 wandb_logger = WandbLogger(name='Small_experiment',project='pytorchlightning')
 wandb_logger.experiment.config["Model"] = "Full"
 
-sample_window_size = 1024
-resolution = 128
+sample_window_size = 2048
+resolution = 1024 #128
 
 # TFs included in the training dataset
-#TF_list = ['ZNF143', 'ZNF274', 'ZNF24', 'ZNF18']
-with open("/home/natant/Thesis/plmbind/data_processing/TF_split/ZNF_train", "rb") as f: # "rb" because we want to read in binary mode
+TF_list = ['ZNF143', 'ZNF274', 'ZNF24', 'ZNF18']
+with open("/home/natant/Thesis/plmbind/data_processing/TF_split/ZNF_train", "rb") as f: 
     ZNF_train = pickle.load(f)
-with open("/home/natant/Thesis/plmbind/data_processing/TF_split/ZNF_test", "rb") as f: # "rb" because we want to read in binary mode
+with open("/home/natant/Thesis/plmbind/data_processing/TF_split/ZNF_test", "rb") as f: 
     ZNF_test = pickle.load(f)
-with open("/home/natant/Thesis/plmbind/data_processing/TF_split/ZNF_val", "rb") as f: # "rb" because we want to read in binary mode
+with open("/home/natant/Thesis/plmbind/data_processing/TF_split/ZNF_val", "rb") as f:
     ZNF_val = pickle.load(f)
 
 # Create datamodule:
@@ -39,26 +39,31 @@ remap_datamodule = ReMapDataModule(
     train_loc="/home/natant/Thesis/Data/ReMap2022/train.h5t",
     val_loc="/home/natant/Thesis/Data/ReMap2022/val.h5t",
     test_loc="/home/natant/Thesis/Data/ReMap2022/test.h5t",
-    TF_list=ZNF_train,
+    TF_list=ZNF_train[:50],
+    TF_batch_size=0, # PUT 0 WHEN YOU WANT TO USE ALL TFs
     window_size=sample_window_size,
     resolution_factor=resolution,
-    embeddings="unstructured/prot_embeddings_t6"
+    embeddings="unstructured/prot_embeddings_t6",
+    batch_size=8 # HAS TO BE ONE WHEN, TF_BATCH_SIZE != 0
     ) 
 
 # Create model
+
+
 Full_model = FullTFModel(   
     seq_len=sample_window_size,
     prot_embedding_dim=320,
-    num_classes=len(ZNF_train),
-    num_DNA_filters=20,
-    num_prot_filters=20,
+    TF_list=ZNF_train[:50],
+    num_classes=len(ZNF_train[:50]), # SHOULD BE THE SAME AS THE TF_BATCH_SIZE
+    num_DNA_filters=50,
+    num_prot_filters=50,
     DNA_kernel_size=10,
     prot_kernel_size=10,
-    AdaptiveMaxPoolingOutput=600,
+    AdaptiveMaxPoolingOutput=1000,
     dropout=0.25,
-    num_linear_layers=3,
-    linear_layer_size=64,
-    final_embeddings_size=64
+    num_linear_layers=5,
+    linear_layer_size=128,
+    final_embeddings_size=128
     )
 
 # Create unique date timestamp
@@ -74,11 +79,11 @@ checkpoint_callback = ModelCheckpoint(
 
 # Create Trainer
 trainer = pl.Trainer(
-    max_epochs = 5, 
+    max_epochs = 10000, 
     accelerator = "gpu", 
     devices = 1, 
-    limit_train_batches = 10,
-    limit_val_batches = 10,
+    limit_train_batches = 500,
+    limit_val_batches = 50,
     limit_predict_batches = 200,
     limit_test_batches = 200,
     callbacks=[checkpoint_callback],
@@ -96,11 +101,11 @@ trainer.save_checkpoint('/home/natant/Thesis/Logs/Model_checkpoints/Full-model-'
 
 ### PREDICTION ###
 # Specifiy the TFs for prediction (Include one of the training data as sanity check)
-TF_predict_list =  ZNF_test
-
+#TF_predict_list =  ZNF_test[:10]
+TF_predict_list = ZNF_train[:50]
 # Setup the datamodule for prediction: predict for "train", "test" or "val" datasplit
+#remap_datamodule.predict_setup(TF_predict_list, "test")
 remap_datamodule.predict_setup(TF_predict_list, "test")
-
 # Do the prediction
 preds = trainer.predict(Full_model, datamodule=remap_datamodule)
 
