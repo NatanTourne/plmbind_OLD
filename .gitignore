@@ -128,7 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# 
+# This shouldn't be here if you structure your folders correctly.
 Data/
 Data/*
 Logs/
