@@ -1,5 +1,3 @@
-from re import I
-from h11 import Data
 import numpy as np
 import h5torch
 import torch
@@ -12,14 +10,10 @@ class RemapDataset(h5torch.Dataset):
     def __init__(
         self,
         path,
-        TF_list,
-        TF_batch_size,
-        embeddings,
         indices_to_sample,
         window_size=1024,
         resolution=128
     ):
-        self.TF_batch_size=TF_batch_size
         self.f = h5torch.File(path)
         self.indices = indices_to_sample
         self.window_size = window_size
@@ -29,37 +23,11 @@ class RemapDataset(h5torch.Dataset):
 
         self.n_proteins = self.f["unstructured/protein_map"].shape[0]
 
-        self.TF_list = TF_list
-        self.protein_index_list = np.concatenate(
-            [np.where(self.f["unstructured/protein_map"][:].astype('str') == i) for i in self.TF_list]
-            ).flatten()
-        embedding_list_temp = []
-        for i in self.protein_index_list:
-            embedding_list_temp.append(
-                #self.f["unstructured/prot_embeddings"][str(i)][:]
-                self.f[embeddings][str(i)][:]
-                )
-        self.embedding_list = embedding_list_temp
-
         # self.debug_val = 0
     def __len__(self):
         return len(self.indices)
 
     def __getitem__(self, index):
-        # SAMPLE TFs (Too many cause memory issues)
-        Used_TFs = []
-        Used_index = []
-        Used_embeddings = []
-        if self.TF_batch_size == 0:
-            Used_TFs = self.TF_list[:]
-            Used_index = self.protein_index_list[:]
-            Used_embeddings = self.embedding_list[:]
-        else:
-            samples = random.sample(range(len(self.TF_list)), self.TF_batch_size)
-            Used_TFs = [self.TF_list[i] for i in samples]
-            Used_index = [self.protein_index_list[i] for i in samples]
-            Used_embeddings = [self.embedding_list[i] for i in samples]
-        
         
         start_ix = self.indices[index]
         end_ix = start_ix + self.window_size
@@ -89,9 +57,13 @@ class RemapDataset(h5torch.Dataset):
             labels[peaks_prot_sliced[indices][:, None], slices_] = 1
 
         y = torch.tensor(labels)
-        y = y[Used_index, self.start_position_offset:self.stop_position_offset]
-        # y = (y.sum(-1) != 0).astype(torch.float32)
+        y = y[:, self.start_position_offset:self.stop_position_offset]
+
+        # integrate labels over positions: why?
         y = (y.sum(-1) != 0).type(torch.float32)
+
+        # the strategy below gives you a label per window_step nucleotides: "resolution", why not use this?:
+
         # https://pytorch.org/docs/stable/generated/torch.Tensor.unfold.html
         # if (self.label_bin_window_size > 1) and (self.label_bin_window_step > 1):
         #     y = (y.unfold(
@@ -100,7 +72,7 @@ class RemapDataset(h5torch.Dataset):
         #         step = self.label_bin_window_step
         #         ).sum(-1) != 0).to(y)
 
-        return DNA, Used_embeddings, y
+        return DNA, y
     
 class ReMapDataModule(pl.LightningDataModule):
     def __init__(
@@ -113,7 +85,8 @@ class ReMapDataModule(pl.LightningDataModule):
         window_size=1024,
         resolution_factor=128,
         batch_size: int = 32,
-        embeddings="unstructured/prot_embeddings"
+        embeddings="unstructured/prot_embeddings",
+        num_workers = 3
     ):
         super().__init__()
         self.train_loc = train_loc
@@ -125,6 +98,8 @@ class ReMapDataModule(pl.LightningDataModule):
         self.TF_list = TF_list
         self.TF_batch_size = TF_batch_size
         self.embeddings = embeddings
+        self.num_workers = num_workers
+
         # TRAIN DATA
         ## GET INDICES
         f = h5torch.File(self.train_loc)
@@ -139,12 +114,9 @@ class ReMapDataModule(pl.LightningDataModule):
         ## CREATE DATASET
         self.train_data = RemapDataset(
             self.train_loc,
-            TF_list=TF_list,
-            TF_batch_size = self.TF_batch_size,
             indices_to_sample=self.positions_to_sample_train,
             window_size=window_size,
             resolution=resolution_factor,
-            embeddings=embeddings
             )
         
         # VALIDATION DATA
@@ -161,12 +133,9 @@ class ReMapDataModule(pl.LightningDataModule):
         ## CREATE DATASET
         self.val_data = RemapDataset(
             self.val_loc,
-            TF_list=TF_list,
-            TF_batch_size = self.TF_batch_size,
             indices_to_sample=self.positions_to_sample_val,
             window_size=window_size,
             resolution=resolution_factor,
-            embeddings=embeddings
             )
         
         # TEST DATA
@@ -183,26 +152,47 @@ class ReMapDataModule(pl.LightningDataModule):
         ## CREATE DATASET
         self.test_data = RemapDataset(
             self.test_loc,
-            TF_list=TF_list,
-            TF_batch_size = self.TF_batch_size,
             indices_to_sample=self.positions_to_sample_test,
             window_size=window_size,
             resolution=resolution_factor,
-            embeddings=embeddings
             )
+
+
     def setup(self, stage=None):
         pass
             
     def train_dataloader(self):
-        return DataLoader(self.train_data, batch_size=self.batch_size) #, shuffle=True)
+        return DataLoader(
+            self.train_data,
+            batch_size=self.batch_size,
+            shuffle = True,
+            pin_memory=True,
+            num_workers=self.num_workers,
+            collate_fn=Collater(self.train_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
+        )
 
     def val_dataloader(self):
-        return DataLoader(self.val_data, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(
+            self.val_data, 
+            batch_size=self.batch_size, 
+            shuffle=False, 
+            pin_memory=True,
+            num_workers=self.num_workers,
+            collate_fn=Collater(self.val_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
+        )
 
     def test_dataloader(self):
-        return DataLoader(self.test_data, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(
+            self.test_data, 
+            batch_size=self.batch_size, 
+            shuffle=False, 
+            pin_memory=True,
+            num_workers=self.num_workers,
+            collate_fn=Collater(self.test_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
+        )
 
 
+    # how is the predict dataloader different from train/val/test // does this need to be here?
     def predict_setup(self, Predict_TF, Data_split):
         if Data_split.lower() == "train":
             self.pred_loc = self.train_loc
@@ -227,3 +217,43 @@ class ReMapDataModule(pl.LightningDataModule):
     
     def predict_dataloader(self):
         return DataLoader(self.predict_data, batch_size=self.batch_size)
+
+
+
+class Collater():
+    def __init__(self, path, TF_list, embeddings, TF_batch_size = 0):
+        f = h5torch.File(path)
+        self.TF_batch_size = TF_batch_size
+        self.TF_list = TF_list
+        self.protein_index_list = np.concatenate(
+            [np.where(f["unstructured/protein_map"][:].astype('str') == i) for i in self.TF_list]
+            ).flatten()
+        embedding_list_temp = []
+        for i in self.protein_index_list:
+            embedding_list_temp.append(
+                #self.f["unstructured/prot_embeddings"][str(i)][:]
+                f[embeddings][str(i)][:]
+                )
+        self.embedding_list = embedding_list_temp
+
+    def __call__(self, batch):
+        # SAMPLE TFs (Too many cause memory issues)
+        Used_index = []
+        Used_embeddings = []
+        if self.TF_batch_size == 0:
+            Used_index = self.protein_index_list[:]
+            Used_embeddings = self.embedding_list[:]
+        else:
+            samples = random.sample(range(len(self.TF_list)), self.TF_batch_size)
+            Used_index = [self.protein_index_list[i] for i in samples]
+            Used_embeddings = [self.embedding_list[i] for i in samples]
+
+        # If you change the above part to use a HDF5 dataset of mean-embeddings
+        # you can code it here so that Used_embeddings is a torch.tensor (C, H)
+        # with C = number of TFs (classes) and H = hidden dimensions of the embeddings
+        # then in your model, you only need to process it with linear layers.
+
+        DNA, y = torch.utils.data.default_collate(batch)
+        y = y[:, Used_index]
+
+        return DNA, Used_embeddings, y
