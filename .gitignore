@@ -139,6 +139,12 @@ wandb/
 wandb/*
 plmbind/scripts/wandb/*
 plmbind/scripts/wandb
+Testing_ground
+Testing_ground/
+Testing_ground/*
+
+
+
 
 lightning_logs/version_0/events.out.tfevents.1677068670.kermitgpu-01.10396.0
 lightning_logs/version_0/hparams.yaml
