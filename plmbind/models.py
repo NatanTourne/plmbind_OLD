@@ -126,16 +126,11 @@ class FullTFModel(pl.LightningModule):
 
         # Run protein branch for every protein in the input.
         # This might not be the most efficient way of doing this!!
-        x_prot = [
-            self.conv_net_proteins(i.permute(0, 2, 1)) for i in x_prot_in
-            ]
+        x_prot = self.conv_net_proteins(x_prot_in.permute(0, 2, 1))
+    
 
         # Take the dot product
-        x_product = torch.einsum(
-            "b l h, l h -> l b",
-            torch.stack(x_prot),
-            x_DNA
-            )
+        x_product = torch.einsum("b l, h l -> h b", x_prot, x_DNA) ## dubble check ##!! !!!!!!!!!!!!!!!!!!
 
         return x_product
 

@@ -24,12 +24,11 @@ sample_window_size = 2048
 resolution = 1024 #128
 
 # TFs included in the training dataset
-TF_list = ['ZNF143', 'ZNF274', 'ZNF24', 'ZNF18']
-with open("/home/natant/Thesis/plmbind/data_processing/TF_split/ZNF_train", "rb") as f: 
-    ZNF_train = pickle.load(f)
-with open("/home/natant/Thesis/plmbind/data_processing/TF_split/ZNF_test", "rb") as f: 
+with open("/home/natant/Thesis/utils/TF_split/ZNF_train", "rb") as f: 
+    ZNF_train = pickle.load(f)[:50]
+with open("/home/natant/Thesis/utils/TF_split/ZNF_test", "rb") as f: 
     ZNF_test = pickle.load(f)
-with open("/home/natant/Thesis/plmbind/data_processing/TF_split/ZNF_val", "rb") as f:
+with open("/home/natant/Thesis/utils/TF_split/ZNF_val", "rb") as f:
     ZNF_val = pickle.load(f)
 
 # Create datamodule:
@@ -39,11 +38,11 @@ remap_datamodule = ReMapDataModule(
     train_loc="/home/natant/Thesis/Data/ReMap2022/train.h5t",
     val_loc="/home/natant/Thesis/Data/ReMap2022/val.h5t",
     test_loc="/home/natant/Thesis/Data/ReMap2022/test.h5t",
-    TF_list=ZNF_train[:50],
+    TF_list=ZNF_train,
     TF_batch_size=0, # PUT 0 WHEN YOU WANT TO USE ALL TFs
     window_size=sample_window_size,
     resolution_factor=resolution,
-    embeddings="unstructured/prot_embeddings_t6",
+    embeddings="unstructured/t6_320_pad_trun",
     batch_size=8 # HAS TO BE ONE WHEN, TF_BATCH_SIZE != 0 (This is because of the different lengths of TFs...)
     ) 
 
@@ -53,8 +52,8 @@ remap_datamodule = ReMapDataModule(
 Full_model = FullTFModel(   
     seq_len=sample_window_size,
     prot_embedding_dim=320,
-    TF_list=ZNF_train[:50],
-    num_classes=len(ZNF_train[:50]), # SHOULD BE THE SAME AS THE TF_BATCH_SIZE
+    TF_list=ZNF_train,
+    num_classes=len(ZNF_train), # SHOULD BE THE SAME AS THE TF_BATCH_SIZE
     num_DNA_filters=50,
     num_prot_filters=50,
     DNA_kernel_size=10,

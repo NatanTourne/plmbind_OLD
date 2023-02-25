@@ -8,6 +8,7 @@ parser.add_argument("genome_path")
 parser.add_argument("out_path")
 parser.add_argument('-chrom', nargs="+", type=int)
 parser.add_argument('-NOTchrom', nargs="+", type=int)
+parser.add_argument('-alts')
 args = parser.parse_args()
 data = pd.read_csv(args.bed_path, sep = "\t", header = None)
 data.head()
@@ -45,14 +46,18 @@ chrom_order = sorted(list(Unique_chrom_names), key=lambda x: get_chrom_number(x)
 print("Used chromosomes: ")
 if args.chrom != None:
     chroms = [chrom_order[i-1] for i in args.chrom]
-    special_chroms = [i for i in chrom_order if i.split("_")[0] in chroms]
-    chroms = chroms + special_chroms
+    if args.alts == "True":
+        chroms = [i for i in chrom_order if i.split("_")[0] in chroms]
     print(chroms)
 elif args.NOTchrom != None:
     NOTchroms = [chrom_order[i-1] for i in args.NOTchrom]
     special_chroms = [i for i in chrom_order if i.split("_")[0] in NOTchroms]
     NOTchroms = NOTchroms + special_chroms
-    chroms = [i for i in chrom_order if i not in NOTchroms]
+    chroms_w_alts = [i for i in chrom_order if i not in NOTchroms]
+    chroms = [i for i in chroms_w_alts if len(i.split("_"))==1]
+    if args.alts == "True":
+        chroms = chroms_w_alts[:]
+        
     print(chroms)
 else:
     raise SystemExit(1)

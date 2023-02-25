@@ -81,11 +81,11 @@ class ReMapDataModule(pl.LightningDataModule):
         val_loc,
         test_loc,
         TF_list,
+        embeddings,
         TF_batch_size=0,
         window_size=1024,
         resolution_factor=128,
         batch_size: int = 32,
-        embeddings="unstructured/prot_embeddings",
         num_workers = 3
     ):
         super().__init__()
@@ -165,7 +165,7 @@ class ReMapDataModule(pl.LightningDataModule):
         return DataLoader(
             self.train_data,
             batch_size=self.batch_size,
-            shuffle = True,
+            shuffle = False, # THIS SHOULD BE TRUE BUT THERE IS STILL AN ERROR WITH THE INDICES AT THE END OF THE CHROMS???? ##!!
             pin_memory=True,
             num_workers=self.num_workers,
             collate_fn=Collater(self.train_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
@@ -194,6 +194,7 @@ class ReMapDataModule(pl.LightningDataModule):
 
     # how is the predict dataloader different from train/val/test // does this need to be here?
     def predict_setup(self, Predict_TF, Data_split):
+        self.predict_TF = Predict_TF
         if Data_split.lower() == "train":
             self.pred_loc = self.train_loc
             self.positions_to_sample_pred = self.positions_to_sample_train
@@ -207,17 +208,20 @@ class ReMapDataModule(pl.LightningDataModule):
             raise Exception("Not a valid data split")
         self.predict_data = RemapDataset(
             self.pred_loc,
-            TF_list=Predict_TF,
-            TF_batch_size=0,
             indices_to_sample=self.positions_to_sample_pred,
             window_size=self.window_size,
-            resolution=self.resolution_factor,
-            embeddings=self.embeddings
+            resolution=self.resolution_factor
             )
     
     def predict_dataloader(self):
-        return DataLoader(self.predict_data, batch_size=self.batch_size)
-
+        return DataLoader(
+            self.predict_data, 
+            batch_size=self.batch_size, 
+            shuffle=False, 
+            pin_memory=True,
+            num_workers=self.num_workers,
+            collate_fn=Collater(self.pred_loc, self.predict_TF, self.embeddings, TF_batch_size = self.TF_batch_size)
+        )
 
 
 class Collater():
@@ -256,4 +260,4 @@ class Collater():
         DNA, y = torch.utils.data.default_collate(batch)
         y = y[:, Used_index]
 
-        return DNA, Used_embeddings, y
+        return DNA, torch.tensor(np.array(Used_embeddings)), y
