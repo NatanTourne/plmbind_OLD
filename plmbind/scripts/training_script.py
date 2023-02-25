@@ -44,7 +44,7 @@ remap_datamodule = ReMapDataModule(
     window_size=sample_window_size,
     resolution_factor=resolution,
     embeddings="unstructured/prot_embeddings_t6",
-    batch_size=8 # HAS TO BE ONE WHEN, TF_BATCH_SIZE != 0
+    batch_size=8 # HAS TO BE ONE WHEN, TF_BATCH_SIZE != 0 (This is because of the different lengths of TFs...)
     ) 
 
 # Create model
