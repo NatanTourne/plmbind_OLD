@@ -44,9 +44,19 @@ class FullTFModel(pl.LightningModule):
             average='macro',
             compute_on_step=False
             )
+        self.train_AUROC_micro = MultilabelAUROC(
+            num_labels=num_classes,
+            average='micro',
+            compute_on_step=False
+            )
         self.val_AUROC = MultilabelAUROC(
             num_labels=num_classes,
             average='macro',
+            compute_on_step=False
+            )
+        self.val_AUROC_micro = MultilabelAUROC(
+            num_labels=num_classes,
+            average='micro',
             compute_on_step=False
             )
         self.val_AUROC_all = MultilabelAUROC(
@@ -57,6 +67,11 @@ class FullTFModel(pl.LightningModule):
         self.test_AUROC = MultilabelAUROC(
             num_labels=num_classes,
             average='macro',
+            compute_on_step=False
+            )
+        self.test_AUROC_micro = MultilabelAUROC(
+            num_labels=num_classes,
+            average='micro',
             compute_on_step=False
             )
         self.seq_len = seq_len
@@ -97,12 +112,12 @@ class FullTFModel(pl.LightningModule):
         
         # The Protein branch of the model
         self.conv_net_proteins = nn.Sequential(
-            nn.AdaptiveMaxPool1d(AdaptiveMaxPoolingOutput),
+            #nn.AdaptiveMaxPool1d(AdaptiveMaxPoolingOutput),
             nn.Conv1d(prot_embedding_dim, num_prot_filters, prot_kernel_size),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(
-                num_prot_filters*(AdaptiveMaxPoolingOutput-prot_kernel_size+1),
+                num_prot_filters*(1024-prot_kernel_size+1), #num_prot_filters*(AdaptiveMaxPoolingOutput-prot_kernel_size+1),
                 linear_layer_size_prot
                 ),
             nn.Dropout(dropout),
@@ -149,6 +164,8 @@ class FullTFModel(pl.LightningModule):
         self.log('train_acc', self.train_acc, on_step=False, on_epoch=True, batch_size=1000)
         self.train_AUROC(y_hat_sigmoid, y)
         self.log('train_AUROC', self.train_AUROC, on_step=False, on_epoch=True, batch_size=1000)
+        self.train_AUROC_micro(y_hat_sigmoid, y)
+        self.log('train_AUROC_micro', self.train_AUROC_micro, on_step=False, on_epoch=True, batch_size=1000)
         return loss
 
     def test_step(self, test_batch, batch_idx):
@@ -162,6 +179,8 @@ class FullTFModel(pl.LightningModule):
         self.log('test_acc', self.test_acc, on_step=False, on_epoch=True, batch_size=1000)
         self.test_AUROC(y_hat_sigmoid, y)
         self.log('test_AUROC', self.test_AUROC, on_step=False, on_epoch=True, batch_size=1000)
+        self.test_AUROC_micro(y_hat_sigmoid, y)
+        self.log('test_AUROC_micro', self.test_AUROC_micro, on_step=False, on_epoch=True, batch_size=1000)
         return loss
 
     def validation_step(self, valid_batch, batch_idx):
@@ -176,6 +195,9 @@ class FullTFModel(pl.LightningModule):
     
         self.val_AUROC(y_hat_sigmoid, y)
         self.log('val_AUROC', self.val_AUROC, on_step=False, on_epoch=True, batch_size=1000)
+        
+        self.val_AUROC_micro(y_hat_sigmoid, y)
+        self.log('val_AUROC_micro', self.val_AUROC_micro, on_step=False, on_epoch=True, batch_size=1000)
         
         all_AUROC = self.val_AUROC_all(y_hat_sigmoid,y)
         all_AUROC_dict = dict([(key, value) for key, value in zip(self.TF_list, all_AUROC)])

@@ -20,24 +20,24 @@ wandb.init(project="Thesis_experiments", entity="ntourne")
 wandb_logger = WandbLogger(name='Small_experiment',project='pytorchlightning')
 wandb_logger.experiment.config["Model"] = "Full"
 
-sample_window_size = 2048
-resolution = 1024 #128
+sample_window_size = 1024
+resolution = 256 #1024 #128
 
 # TFs included in the training dataset
-with open("/home/natant/Thesis/utils/TF_split/ZNF_train", "rb") as f: 
-    ZNF_train = pickle.load(f)[:50]
-with open("/home/natant/Thesis/utils/TF_split/ZNF_test", "rb") as f: 
+with open("/home/natant/Thesis-plmbind/Thesis/utils/TF_split/ZNF_train", "rb") as f: 
+    ZNF_train = pickle.load(f) #[:50]
+with open("/home/natant/Thesis-plmbind/Thesis/utils/TF_split/ZNF_test", "rb") as f: 
     ZNF_test = pickle.load(f)
-with open("/home/natant/Thesis/utils/TF_split/ZNF_val", "rb") as f:
+with open("/home/natant/Thesis-plmbind/Thesis/utils/TF_split/ZNF_val", "rb") as f:
     ZNF_val = pickle.load(f)
 
 # Create datamodule:
     # Seperate files for train, val, test
     # Protein embeddings are now specified (multiple sizes are possible)
 remap_datamodule = ReMapDataModule(
-    train_loc="/home/natant/Thesis/Data/ReMap2022/train.h5t",
-    val_loc="/home/natant/Thesis/Data/ReMap2022/val.h5t",
-    test_loc="/home/natant/Thesis/Data/ReMap2022/test.h5t",
+    train_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/train_no_alts.h5t",
+    val_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/val_no_alts.h5t",
+    test_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/test_no_alts.h5t",
     TF_list=ZNF_train,
     TF_batch_size=0, # PUT 0 WHEN YOU WANT TO USE ALL TFs
     window_size=sample_window_size,
@@ -58,7 +58,6 @@ Full_model = FullTFModel(
     num_prot_filters=50,
     DNA_kernel_size=10,
     prot_kernel_size=10,
-    AdaptiveMaxPoolingOutput=1000,
     dropout=0.25,
     num_linear_layers=5,
     linear_layer_size=128,
@@ -71,7 +70,7 @@ date = datetime.now().strftime("%Y%m%d_%H:%M:%S")
 # Create checkpoint callback
 checkpoint_callback = ModelCheckpoint(
     monitor='val_loss',
-    dirpath='/home/natant/Thesis/Logs/Model_checkpoints',
+    dirpath='/home/natant/Thesis-plmbind/Data/Model_checkpoints',
     filename='Full-model-'+date+'-{epoch:02d}-{val_loss:.2f}'
     )
 
@@ -83,7 +82,7 @@ trainer = pl.Trainer(
     devices = 1, 
     limit_train_batches = 500,
     limit_val_batches = 50,
-    limit_predict_batches = 200,
+    limit_predict_batches = 1000,
     limit_test_batches = 200,
     callbacks=[checkpoint_callback],
     logger = wandb_logger
@@ -96,7 +95,7 @@ trainer.fit(Full_model, datamodule=remap_datamodule)
 trainer.test(Full_model, datamodule=remap_datamodule)
 
 # Save checkpoint
-trainer.save_checkpoint('/home/natant/Thesis/Logs/Model_checkpoints/Full-model-'+date+'.ckpt')
+trainer.save_checkpoint('/home/natant/Thesis-plmbind/Data/Model_checkpoints/Full-model-'+date+'.ckpt')
 
 ### PREDICTION ###
 # Specifiy the TFs for prediction (Include one of the training data as sanity check)
@@ -124,5 +123,4 @@ pred_AUROC = AUROC_test(pred_tensor, target_tensor)
 print("---------------------------------------------------------")
 print("ZERO-SHOT PREDICTION:")
 print(pred_AUROC)
-print("(as sanity check the last value is normal validation data)")
 
