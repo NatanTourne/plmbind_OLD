@@ -261,3 +261,4 @@ class Collater():
         y = y[:, Used_index]
 
         return DNA, torch.tensor(np.array(Used_embeddings)), y
+    

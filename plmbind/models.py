@@ -23,7 +23,6 @@ class FullTFModel(pl.LightningModule):
         num_prot_filters=20,
         DNA_kernel_size=10,
         prot_kernel_size=10,
-        AdaptiveMaxPoolingOutput=600,
         dropout=0.25,
         num_linear_layers=3,
         linear_layer_size=64,
@@ -209,6 +208,10 @@ class FullTFModel(pl.LightningModule):
         y_hat = self.forward(x_DNA, x_prot)
         y_hat_sigmoid = torch.sigmoid(y_hat)
         return y, y_hat, y_hat_sigmoid
+    
+    def get_TF_latent_vector(self, TF_emb):
+        return self.conv_net_proteins(TF_emb.permute(0, 2, 1))
+        
 
     
 class MultilabelModel(pl.LightningModule):
