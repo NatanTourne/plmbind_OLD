@@ -9,6 +9,14 @@ from torchmetrics.classification import MultilabelF1Score
 from torchmetrics.classification import MultilabelAUROC
 from h5torch.dataset import apply_dtype
 
+
+class Crop(nn.Module):
+    def __init__(self, n):
+        super().__init__()
+        self.n = n
+    def forward(self, x):
+        return x[..., self.n:-self.n]
+
 class FullTFModel(pl.LightningModule):
     """
     Still have to add this.
@@ -84,29 +92,48 @@ class FullTFModel(pl.LightningModule):
         self.embedding = nn.Embedding.from_pretrained(nucleotide_weights)
 
         # The DNA branch of the model
+        # if resolution is 128: this means that we need 7 times pooling layers that half the "nucleotide"
+        # dimension. After that we also need to shave off the edges, which I set in the dataloader to 4
+        # also, you need to use padding in the convs to keep the dimensions there constant.
         self.conv_net = nn.Sequential(
-            nn.Conv1d(4, num_DNA_filters, kernel_size=DNA_kernel_size),
+            nn.Conv1d(4, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
             nn.ReLU(),
-            nn.Flatten(),
-            nn.Linear(
-                num_DNA_filters*(seq_len-DNA_kernel_size+1),
-                linear_layer_size
-                ),
+            nn.MaxPool1d(2),
             nn.Dropout(dropout),
+
+            nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
             nn.ReLU(),
-            nn.Linear(linear_layer_size, linear_layer_size),
+            nn.MaxPool1d(2),
             nn.Dropout(dropout),
+
+            nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
             nn.ReLU(),
-            nn.Linear(linear_layer_size, linear_layer_size),
+            nn.MaxPool1d(2),
             nn.Dropout(dropout),
+
+            nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
             nn.ReLU(),
-            nn.Linear(linear_layer_size, linear_layer_size),
+            nn.MaxPool1d(2),
             nn.Dropout(dropout),
+
+            nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
             nn.ReLU(),
-            nn.Linear(linear_layer_size, linear_layer_size),
+            nn.MaxPool1d(2),
             nn.Dropout(dropout),
+
+            nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
             nn.ReLU(),
-            nn.Linear(linear_layer_size, final_embeddings_size)
+            nn.MaxPool1d(2),
+            nn.Dropout(dropout),
+
+            nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
+            nn.ReLU(),
+            nn.MaxPool1d(2),
+            nn.Dropout(dropout),
+
+            Crop(4),
+
+            nn.Conv1d(num_DNA_filters, final_embeddings_size, kernel_size=1),
         )
         
         # The Protein branch of the model
@@ -136,15 +163,14 @@ class FullTFModel(pl.LightningModule):
 
     def forward(self, x_DNA_in, x_prot_in):
         # Run DNA branch
-        x_DNA = self.conv_net(self.embedding(x_DNA_in).permute(0, 2, 1))
+        x_DNA = self.conv_net(self.embedding(x_DNA_in).permute(0, 2, 1)) # B x H x L_y
 
-        # Run protein branch for every protein in the input.
-        # This might not be the most efficient way of doing this!!
-        x_prot = self.conv_net_proteins(x_prot_in.permute(0, 2, 1))
+        x_prot = self.conv_net_proteins(x_prot_in.permute(0, 2, 1)) # C x H
     
+        # with `y` being B x C x L_y
 
         # Take the dot product
-        x_product = torch.einsum("b l, h l -> h b", x_prot, x_DNA) ## dubble check ##!! !!!!!!!!!!!!!!!!!!
+        x_product = torch.einsum("b h l, c h -> b c l", x_DNA, x_prot)
 
         return x_product
 

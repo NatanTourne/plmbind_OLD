@@ -20,8 +20,8 @@ wandb.init(project="Thesis_experiments", entity="ntourne")
 wandb_logger = WandbLogger(name='Small_experiment',project='pytorchlightning')
 wandb_logger.experiment.config["Model"] = "Full"
 
-sample_window_size = 1024
-resolution = 256 #1024 #128
+sample_window_size = 32_768 #(2**15)
+resolution = 128 # if you change this you also have to change your model definition
 
 # TFs included in the training dataset
 with open("/home/natant/Thesis-plmbind/Thesis/utils/TF_split/ZNF_train", "rb") as f: 
@@ -43,7 +43,7 @@ remap_datamodule = ReMapDataModule(
     window_size=sample_window_size,
     resolution_factor=resolution,
     embeddings="unstructured/t6_320_pad_trun",
-    batch_size=8 # HAS TO BE ONE WHEN, TF_BATCH_SIZE != 0 (This is because of the different lengths of TFs...)
+    batch_size=8
     ) 
 
 # Create model
@@ -80,10 +80,6 @@ trainer = pl.Trainer(
     max_epochs = 10000, 
     accelerator = "gpu", 
     devices = 1, 
-    limit_train_batches = 500,
-    limit_val_batches = 50,
-    limit_predict_batches = 1000,
-    limit_test_batches = 200,
     callbacks=[checkpoint_callback],
     logger = wandb_logger
     )

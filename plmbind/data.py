@@ -11,15 +11,15 @@ class RemapDataset(h5torch.Dataset):
         self,
         path,
         indices_to_sample,
-        window_size=1024,
-        resolution=128
+        window_size=1024, # size of nucleotides, also size of range of y's to start from (before resolution-binning).
+        shave_edges=128, # shave this number of nucleotides off of the y's so you don't predict for this.
+        resolution=128 # get a y for every "resolution" nucleotides
     ):
         self.f = h5torch.File(path)
         self.indices = indices_to_sample
         self.window_size = window_size
         self.resolution = resolution
-        self.start_position_offset = (self.window_size//2)-(self.resolution//2)
-        self.stop_position_offset = (self.window_size//2)+(self.resolution//2)
+        self.shave_edges = shave_edges
 
         self.n_proteins = self.f["unstructured/protein_map"].shape[0]
 
@@ -36,7 +36,10 @@ class RemapDataset(h5torch.Dataset):
             apply_dtype(self.f["central"], self.f["central"][start_ix:end_ix])
             )
 
-        slice_ix1, slice_ix2 = self.f["unstructured/slice_indices_per_100000"][:][[start_ix // 100_000, end_ix // 100_000], [0, 1]]
+        slice_ix1, slice_ix2 = np.concatenate([
+            self.f["unstructured/slice_indices_per_100000"][:],
+            self.f["unstructured/slice_indices_per_100000"][:][[-1]]
+            ], axis = 0)[[start_ix // 100_000, end_ix // 100_000], [0, 1]]
         peaks_start_sliced = self.f["unstructured/peaks_start"][slice_ix1:slice_ix2]
         peaks_end_sliced = self.f["unstructured/peaks_end"][slice_ix1:slice_ix2]
         peaks_prot_sliced = self.f["unstructured/peaks_prot"][slice_ix1:slice_ix2]
@@ -57,20 +60,12 @@ class RemapDataset(h5torch.Dataset):
             labels[peaks_prot_sliced[indices][:, None], slices_] = 1
 
         y = torch.tensor(labels)
-        y = y[:, self.start_position_offset:self.stop_position_offset]
-
-        # integrate labels over positions: why?
-        y = (y.sum(-1) != 0).type(torch.float32)
-
-        # the strategy below gives you a label per window_step nucleotides: "resolution", why not use this?:
-
-        # https://pytorch.org/docs/stable/generated/torch.Tensor.unfold.html
-        # if (self.label_bin_window_size > 1) and (self.label_bin_window_step > 1):
-        #     y = (y.unfold(
-        #         1,
-        #         size = self.label_bin_window_size,
-        #         step = self.label_bin_window_step
-        #         ).sum(-1) != 0).to(y)
+        y = y[:, self.shave_edges:-self.shave_edges]
+        
+        if self.resolution > 1:
+            y = (y.unfold(
+                1, size = self.resolution, step = self.resolution
+                 ).sum(-1) != 0).float()
 
         return DNA, y
     
@@ -83,7 +78,7 @@ class ReMapDataModule(pl.LightningDataModule):
         TF_list,
         embeddings,
         TF_batch_size=0,
-        window_size=1024,
+        window_size=8192,
         resolution_factor=128,
         batch_size: int = 32,
         num_workers = 3
@@ -108,7 +103,9 @@ class ReMapDataModule(pl.LightningDataModule):
         end_pos_each_chrom = indices[1:] - 10000
         positions_to_sample = []
         for starts, stops in zip(start_pos_each_chrom, end_pos_each_chrom):
-            positions_to_sample.append(np.arange(starts, stops, self.resolution_factor)[:-10]) ###!! THIS -10 WAS A QUICK FIX?? WHAT DOES IT DO, WHY IS IT NEEDED?
+            positions_to_sample.append(np.arange(starts, stops, window_size - 8*resolution_factor)[:-1])
+            # we still cut off the last one, otherwise the last sample in each chromosome would contain a DNA sequence 
+            # that is not the right size because we're at the edge of our chromosome
         self.positions_to_sample_train = np.concatenate(positions_to_sample)
         
         ## CREATE DATASET
@@ -117,7 +114,16 @@ class ReMapDataModule(pl.LightningDataModule):
             indices_to_sample=self.positions_to_sample_train,
             window_size=window_size,
             resolution=resolution_factor,
+            shave_edges=resolution_factor*4
             )
+        # I put the shave_edges as the same as 4*resolution for now, this means that
+        # 4 "y" tokens will be shaved off of the output at every side,
+        # this is because we don't want to train on the y tokens at the edge of our sequence because
+        # their prediction will only be based on either the left or the right edge
+        # note that this also dictates how we construct "positions_to_sample", as these dictate the
+        # start of the DNA windows we construct as samples. If we shave off 4*resolution labels in each sample
+        # we should make sure our sample windows are taken as size window_size with 8*resolution overlap
+        # this way, we make sure we train on all labels.
         
         # VALIDATION DATA
         ## GET INDICES
@@ -127,7 +133,7 @@ class ReMapDataModule(pl.LightningDataModule):
         end_pos_each_chrom = indices[1:] - 10000
         positions_to_sample = []
         for starts, stops in zip(start_pos_each_chrom, end_pos_each_chrom):
-            positions_to_sample.append(np.arange(starts, stops, self.resolution_factor)[:-10]) ###!! THIS -10 WAS A QUICK FIX?? WHAT DOES IT DO, WHY IS IT NEEDED?
+            positions_to_sample.append(np.arange(starts, stops, window_size - 8*resolution_factor)[:-1])
         self.positions_to_sample_val = np.concatenate(positions_to_sample)
         
         ## CREATE DATASET
@@ -136,6 +142,7 @@ class ReMapDataModule(pl.LightningDataModule):
             indices_to_sample=self.positions_to_sample_val,
             window_size=window_size,
             resolution=resolution_factor,
+            shave_edges=resolution_factor*4
             )
         
         # TEST DATA
@@ -146,7 +153,7 @@ class ReMapDataModule(pl.LightningDataModule):
         end_pos_each_chrom = indices[1:] - 10000
         positions_to_sample = []
         for starts, stops in zip(start_pos_each_chrom, end_pos_each_chrom):
-            positions_to_sample.append(np.arange(starts, stops, self.resolution_factor)[:-10]) ###!! THIS -10 WAS A QUICK FIX?? WHAT DOES IT DO, WHY IS IT NEEDED?
+            positions_to_sample.append(np.arange(starts, stops, window_size - 8*resolution_factor)[:-1])
         self.positions_to_sample_test = np.concatenate(positions_to_sample)
         
         ## CREATE DATASET
@@ -154,7 +161,7 @@ class ReMapDataModule(pl.LightningDataModule):
             self.test_loc,
             indices_to_sample=self.positions_to_sample_test,
             window_size=window_size,
-            resolution=resolution_factor,
+            shave_edges=resolution_factor*4
             )
 
 
@@ -165,7 +172,7 @@ class ReMapDataModule(pl.LightningDataModule):
         return DataLoader(
             self.train_data,
             batch_size=self.batch_size,
-            shuffle = False, # THIS SHOULD BE TRUE BUT THERE IS STILL AN ERROR WITH THE INDICES AT THE END OF THE CHROMS???? ##!!
+            shuffle = True,
             pin_memory=True,
             num_workers=self.num_workers,
             collate_fn=Collater(self.train_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
