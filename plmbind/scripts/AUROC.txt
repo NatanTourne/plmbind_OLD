@@ -1,0 +1,95 @@
+wandb: Currently logged in as: ntourne. Use `wandb login --relogin` to force relogin
+wandb: wandb version 0.13.10 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.13.5
+wandb: Run data is saved locally in /home/natant/Thesis-plmbind/Thesis/plmbind/scripts/wandb/run-20230307_154622-uwtifz8q
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run lyric-frost-253
+wandb: ⭐️ View project at https://wandb.ai/ntourne/Thesis_experiments
+wandb: 🚀 View run at https://wandb.ai/ntourne/Thesis_experiments/runs/uwtifz8q
+/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loggers/wandb.py:352: UserWarning: There is a wandb run already in progress and newly created instances of `WandbLogger` will reuse this run. If this is not desired, call `wandb.finish()` before instantiating `WandbLogger`.
+  rank_zero_warn(
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/callbacks/model_checkpoint.py:616: UserWarning: Checkpoint directory /home/natant/Thesis-plmbind/Data/Model_checkpoints exists and is not empty.
+  rank_zero_warn(f"Checkpoint directory {dirpath} exists and is not empty.")
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0,1,2]
+
+   | Name              | Type              | Params
+---------------------------------------------------------
+0  | loss_function     | BCEWithLogitsLoss | 0     
+1  | val_acc           | BinaryAccuracy    | 0     
+2  | test_acc          | BinaryAccuracy    | 0     
+3  | val_AUROC         | MultilabelAUROC   | 0     
+4  | val_AUROC_micro   | MultilabelAUROC   | 0     
+5  | val_AUROC_all     | MultilabelAUROC   | 0     
+6  | test_AUROC        | MultilabelAUROC   | 0     
+7  | test_AUROC_micro  | MultilabelAUROC   | 0     
+8  | embedding         | Embedding         | 20    
+9  | conv_net          | Sequential        | 158 K 
+10 | conv_net_proteins | Sequential        | 440 K 
+---------------------------------------------------------
+598 K     Trainable params
+20        Non-trainable params
+598 K     Total params
+2.396     Total estimated model params size (MB)
+Sanity Checking: 0it [00:00, ?it/s]Sanity Checking:   0%|          | 0/2 [00:00<?, ?it/s]Sanity Checking DataLoader 0:   0%|          | 0/2 [00:00<?, ?it/s]/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/torch/nn/modules/conv.py:303: UserWarning: Using padding='same' with even kernel lengths and odd dilation may require a zero-padded copy of the input be created (Triggered internally at  /home/conda/feedstock_root/build_artifacts/pytorch-recipe_1664412099808/work/aten/src/ATen/native/Convolution.cpp:882.)
+  return F.conv1d(input, weight, bias, self.stride,
+/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/utilities/data.py:98: UserWarning: Trying to infer the `batch_size` from an ambiguous collection. The batch size we found is 4. To avoid any miscalculations, use `self.log(..., batch_size=batch_size)`.
+  warning_cache.warn(
+Traceback (most recent call last):
+  File "/home/natant/Thesis-plmbind/Thesis/plmbind/scripts/training_script.py", line 95, in <module>
+    trainer.fit(Full_model, datamodule=remap_datamodule)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 696, in fit
+    self._call_and_handle_interrupt(
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 650, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 735, in _fit_impl
+    results = self._run(model, ckpt_path=self.ckpt_path)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1166, in _run
+    results = self._run_stage()
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1252, in _run_stage
+    return self._run_train()
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1274, in _run_train
+    self._run_sanity_check()
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1343, in _run_sanity_check
+    val_loop.run()
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loops/loop.py", line 200, in run
+    self.advance(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loops/dataloader/evaluation_loop.py", line 155, in advance
+    dl_outputs = self.epoch_loop.run(self._data_fetcher, dl_max_batches, kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loops/loop.py", line 200, in run
+    self.advance(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loops/epoch/evaluation_epoch_loop.py", line 143, in advance
+    output = self._evaluation_step(**kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/loops/epoch/evaluation_epoch_loop.py", line 240, in _evaluation_step
+    output = self.trainer._call_strategy_hook(hook_name, *kwargs.values())
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1704, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/pytorch_lightning/strategies/strategy.py", line 370, in validation_step
+    return self.model.validation_step(*args, **kwargs)
+  File "/home/natant/Thesis-plmbind/Thesis/plmbind/models.py", line 255, in validation_step
+    self.val_AUROC(y_hat_sigmoid, y)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/torchmetrics/metric.py", line 245, in forward
+    self._forward_cache = self._forward_reduce_state_update(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/torchmetrics/metric.py", line 309, in _forward_reduce_state_update
+    self.update(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/torchmetrics/metric.py", line 405, in wrapped_func
+    raise err
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/torchmetrics/metric.py", line 395, in wrapped_func
+    update(*args, **kwargs)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/torchmetrics/classification/precision_recall_curve.py", line 408, in update
+    state = _multilabel_precision_recall_curve_update(preds, target, self.num_labels, self.thresholds)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/torchmetrics/functional/classification/precision_recall_curve.py", line 630, in _multilabel_precision_recall_curve_update
+    bins = _bincount(unique_mapping, minlength=4 * num_labels * len_t)
+  File "/home/natant/.conda/envs/Thesis/lib/python3.10/site-packages/torchmetrics/utilities/data.py", line 245, in _bincount
+    return torch.bincount(x, minlength=minlength)
+RuntimeError: "bincount_cuda" not implemented for 'Float'
+wandb: Waiting for W&B process to finish... (failed 1). Press Control-C to abort syncing.
+wandb: Synced lyric-frost-253: https://wandb.ai/ntourne/Thesis_experiments/runs/uwtifz8q
+wandb: Synced 6 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20230307_154622-uwtifz8q/logs

@@ -7,41 +7,44 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import wandb
 from datetime import datetime
-
+import pickle
 # Own imports
 from plmbind.data import ReMapDataModule
 from plmbind.models import MultilabelModel
-
+from pytorch_lightning.callbacks import EarlyStopping
 # Setup wandb logging
 wandb.finish()
 wandb.init(project="Thesis_experiments", entity="ntourne")
 wandb_logger = WandbLogger(name='Small_experiment',project='pytorchlightning')
 wandb_logger.experiment.config["Model"] = "DNA"
 
-sample_window_size = 1024
-resolution = 128
+sample_window_size = 2**16 #32_768 #(2**15)
+resolution = 128 # if you change this you also have to change your model definition
 
-# TFs included in the training dataset
-TF_list = ['ZNF143', 'ZNF274', 'ZNF24', 'ZNF18']
+with open("/home/natant/Thesis-plmbind/Thesis/utils/TF_split/train_TFs", "rb") as f: 
+    train_TFs = pickle.load(f) #[:50]
+
 
 # Create datamodule:
     # Seperate files for train, val, test
     # Protein embeddings are now specified (multiple sizes are possible)
 remap_datamodule = ReMapDataModule(
-    train_loc="/home/natant/Thesis/Data/ReMap_TRAIN_TEST_SPLIT/remap_train.h5t",
-    val_loc="/home/natant/Thesis/Data/ReMap_TRAIN_TEST_SPLIT/remap_val_short.h5t",
-    test_loc="/home/natant/Thesis/Data/ReMap_TRAIN_TEST_SPLIT/remap_test_short.h5t",
-    TF_list=TF_list,
+    train_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/train_no_alts.h5t",
+    val_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/val_no_alts.h5t",
+    test_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/test_no_alts.h5t",
+    TF_list=train_TFs,
+    TF_batch_size=0, # PUT 0 WHEN YOU WANT TO USE ALL TFs
     window_size=sample_window_size,
     resolution_factor=resolution,
-    embeddings="unstructured/prot_embeddings_t6"
-    ) 
+    embeddings="unstructured/t6_320_pad_trun",
+    batch_size=16
+    )  
 
 
 # Create model
 DNA_model = MultilabelModel(   
     seq_len=sample_window_size,
-    num_classes=len(TF_list),
+    num_classes=len(train_TFs),
     num_DNA_filters=50,
     DNA_kernel_size=10,
     dropout=0.25,
@@ -55,40 +58,22 @@ date = datetime.now().strftime("%Y%m%d_%H:%M:%S")
 # Create checkpoint callback
 checkpoint_callback = ModelCheckpoint(
     monitor='val_loss',
-    dirpath='/home/natant/Thesis/Logs/Model_checkpoints',
+    dirpath='/home/natant/Thesis-plmbind/Data/Model_checkpoints',
     filename='DNA-model-'+date+'-{epoch:02d}-{val_loss:.2f}'
     )
 
 
+# Create early stopping callback
+early_stopping = EarlyStopping('val_loss')
+
+# Create Trainer
 trainer = pl.Trainer(
-    max_epochs = 5, 
+    max_epochs = 10000, 
     accelerator = "gpu", 
-    devices = 1, 
-    limit_train_batches = 10,
-    limit_val_batches = 20,
-    limit_predict_batches = 20,
-    limit_test_batches = 100,
-    callbacks=[checkpoint_callback],
+    devices = 1,
+    callbacks=[checkpoint_callback, early_stopping],
     logger = wandb_logger
     )
+
 trainer.fit(DNA_model, datamodule=remap_datamodule)
-trainer.test(DNA_model, datamodule=remap_datamodule)
 trainer.save_checkpoint('/home/natant/Thesis/Logs/Model_checkpoints/DNA-model-'+date+'.ckpt')
-
-
-
-## Well the model can not do One-shot prediction so this is just the same as trainer.test!!?
-remap_datamodule.predict_setup(TF_list, "test")
-preds = trainer.predict(DNA_model, datamodule=remap_datamodule)
-from torchmetrics.classification import MultilabelAUROC
-AUROC_test = MultilabelAUROC(num_labels=len(TF_list), average='none')
-targets_list = []
-pred_list = []
-for X in preds:
-    targets_list.append(X[0])
-    pred_list.append(X[1])
-import torch
-target_tensor = torch.cat(targets_list)
-pred_tensor = torch.cat(pred_list)
-pred_AUROC = AUROC_test(pred_tensor, target_tensor)
-print(pred_AUROC)

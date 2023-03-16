@@ -139,6 +139,8 @@ wandb/
 wandb/*
 plmbind/scripts/wandb/*
 plmbind/scripts/wandb
+plmbind/scripts/lightning_logs/*
+plmbind/scripts/lightning_logs
 Testing_ground
 Testing_ground/
 Testing_ground/*
