@@ -10,8 +10,8 @@ import pytorch_lightning as pl
 import pickle
 from torchmetrics.classification import MultilabelAUROC
 # Own imports
-from plmbind.data import ReMapDataModule
-from plmbind.models import FullTFModel
+from plmbind.data import ReMapDataModule_double_val
+from plmbind.models import FullTFModel_double_val
 
 
 def get_mean_embeddings(h5file, emb_name, TF_list):
@@ -45,10 +45,11 @@ def plot_auroc_barplot(df, x, y, num_plots, per_plot, color_list, save_loc = Non
     return fig, ax
 
 # settings
-model_loc = "/home/natant/Thesis-plmbind/Results/20230314/Full-model-20230313_09:33:07-epoch=15-val_loss=0.03.ckpt"
-output_loc = "/home/natant/Thesis-plmbind/Results/20230314/"
+model_loc = "/home/natant/Thesis-plmbind/Results/20230317/Full-model-DNA-20230319_09:21:19-epoch=10-val_loss=0.00.ckpt"
+output_loc = "/home/natant/Thesis-plmbind/Results/20230317/DNA_"
+embeddings = "unstructured/t6_320_pad_trun"
 
-model = FullTFModel.load_from_checkpoint(model_loc)
+model = FullTFModel_double_val.load_from_checkpoint(model_loc)
 
 sample_window_size = 2**16 #32_768 #(2**15)
 resolution = 128 # if you change this you also have to change your model definition
@@ -62,15 +63,16 @@ with open("/home/natant/Thesis-plmbind/Thesis/utils/TF_split/val_TFs", "rb") as 
 # Create datamodule:
     # Seperate files for train, val, test
     # Protein embeddings are now specified (multiple sizes are possible)
-remap_datamodule = ReMapDataModule(
+remap_datamodule = ReMapDataModule_double_val(
     train_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/train_no_alts.h5t",
     val_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/val_no_alts.h5t",
     test_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/test_no_alts.h5t",
     TF_list=train_TFs,
+    val_list=val_TFs,
     TF_batch_size=0, # PUT 0 WHEN YOU WANT TO USE ALL TFs
     window_size=sample_window_size,
     resolution_factor=resolution,
-    embeddings="unstructured/t6_320_pad_trun",
+    embeddings=embeddings,
     batch_size=16
     ) 
 
@@ -102,13 +104,13 @@ for used_TFs in train_TF_splits:
 train_latent_vectors = get_latent_vectors(
     model=model, 
     h5file = "/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/train_no_alts.h5t", 
-    emb_name="unstructured/t6_320_pad_trun", 
+    emb_name=embeddings, 
     TF_list = train_TFs
     )
 
 train_mean_embs = get_mean_embeddings(
     h5file = "/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/train_no_alts.h5t", 
-    emb_name="unstructured/t6_320_pad_trun", 
+    emb_name=embeddings, 
     TF_list = train_TFs
     )
 

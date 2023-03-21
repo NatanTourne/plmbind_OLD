@@ -270,85 +270,20 @@ class Collater():
 
         return DNA, torch.tensor(np.array(Used_embeddings)), y
     
-################ OLD (testing some stuff with captum)
-class RemapDataset_OLD(h5torch.Dataset):
-    def __init__(
-        self,
-        path,
-        indices_to_sample,
-        window_size=1024,
-        resolution=128
-    ):
-        self.f = h5torch.File(path)
-        self.indices = indices_to_sample
-        self.window_size = window_size
-        self.resolution = resolution
-        self.start_position_offset = (self.window_size//2)-(self.resolution//2)
-        self.stop_position_offset = (self.window_size//2)+(self.resolution//2)
 
-        self.n_proteins = self.f["unstructured/protein_map"].shape[0]
 
-        # self.debug_val = 0
-    def __len__(self):
-        return len(self.indices)
-
-    def __getitem__(self, index):
-        
-        start_ix = self.indices[index]
-        end_ix = start_ix + self.window_size
-
-        DNA = torch.tensor(
-            apply_dtype(self.f["central"], self.f["central"][start_ix:end_ix])
-            )
-
-        slice_ix1, slice_ix2 = self.f["unstructured/slice_indices_per_100000"][:][[start_ix // 100_000, end_ix // 100_000], [0, 1]]
-        peaks_start_sliced = self.f["unstructured/peaks_start"][slice_ix1:slice_ix2]
-        peaks_end_sliced = self.f["unstructured/peaks_end"][slice_ix1:slice_ix2]
-        peaks_prot_sliced = self.f["unstructured/peaks_prot"][slice_ix1:slice_ix2]
-
-        indices = (peaks_start_sliced < end_ix) & (peaks_end_sliced > start_ix)
-
-        labels = np.zeros(
-            (self.n_proteins, self.window_size),
-            dtype="int64"
-            )
-        if indices.sum() > 0:  # there has to be at least one peak in the sampled region, otherwise don't fill anything in
-            start_peaks = np.maximum(peaks_start_sliced[indices] - start_ix, 0)
-            end_peaks = np.minimum(peaks_end_sliced[indices] - start_ix, self.window_size)
-            slices_ = [np.arange(srt, stp) for srt, stp in zip(start_peaks, end_peaks)]
-            slice_lens = np.array([s.shape[0] for s in slices_])
-            slices_ = np.array([np.pad(s, (0, lens_), mode="edge") for s, lens_ in zip(slices_, max(slice_lens) - slice_lens)])
-
-            labels[peaks_prot_sliced[indices][:, None], slices_] = 1
-
-        y = torch.tensor(labels)
-        y = y[:, self.start_position_offset:self.stop_position_offset]
-
-        # integrate labels over positions: why?
-        y = (y.sum(-1) != 0).type(torch.float32)
-
-        # the strategy below gives you a label per window_step nucleotides: "resolution", why not use this?:
-
-        # https://pytorch.org/docs/stable/generated/torch.Tensor.unfold.html
-        # if (self.label_bin_window_size > 1) and (self.label_bin_window_step > 1):
-        #     y = (y.unfold(
-        #         1,
-        #         size = self.label_bin_window_size,
-        #         step = self.label_bin_window_step
-        #         ).sum(-1) != 0).to(y)
-
-        return DNA, y
-    
-class ReMapDataModule_OLD(pl.LightningDataModule):
+######################## Testing validation TFs
+class ReMapDataModule_double_val(pl.LightningDataModule):
     def __init__(
         self,
         train_loc,
         val_loc,
         test_loc,
         TF_list,
+        val_list,
         embeddings,
         TF_batch_size=0,
-        window_size=1024,
+        window_size=8192,
         resolution_factor=128,
         batch_size: int = 32,
         num_workers = 3
@@ -361,6 +296,7 @@ class ReMapDataModule_OLD(pl.LightningDataModule):
         self.window_size = window_size
         self.resolution_factor = resolution_factor
         self.TF_list = TF_list
+        self.val_list = val_list
         self.TF_batch_size = TF_batch_size
         self.embeddings = embeddings
         self.num_workers = num_workers
@@ -373,16 +309,27 @@ class ReMapDataModule_OLD(pl.LightningDataModule):
         end_pos_each_chrom = indices[1:] - 10000
         positions_to_sample = []
         for starts, stops in zip(start_pos_each_chrom, end_pos_each_chrom):
-            positions_to_sample.append(np.arange(starts, stops, self.resolution_factor)[:-10]) ###!! THIS -10 WAS A QUICK FIX?? WHAT DOES IT DO, WHY IS IT NEEDED?
+            positions_to_sample.append(np.arange(starts, stops, window_size - 8*resolution_factor)[:-1])
+            # we still cut off the last one, otherwise the last sample in each chromosome would contain a DNA sequence 
+            # that is not the right size because we're at the edge of our chromosome
         self.positions_to_sample_train = np.concatenate(positions_to_sample)
         
         ## CREATE DATASET
-        self.train_data = RemapDataset_OLD(
+        self.train_data = RemapDataset(
             self.train_loc,
             indices_to_sample=self.positions_to_sample_train,
             window_size=window_size,
             resolution=resolution_factor,
+            shave_edges=resolution_factor*4
             )
+        # I put the shave_edges as the same as 4*resolution for now, this means that
+        # 4 "y" tokens will be shaved off of the output at every side,
+        # this is because we don't want to train on the y tokens at the edge of our sequence because
+        # their prediction will only be based on either the left or the right edge
+        # note that this also dictates how we construct "positions_to_sample", as these dictate the
+        # start of the DNA windows we construct as samples. If we shave off 4*resolution labels in each sample
+        # we should make sure our sample windows are taken as size window_size with 8*resolution overlap
+        # this way, we make sure we train on all labels.
         
         # VALIDATION DATA
         ## GET INDICES
@@ -392,15 +339,16 @@ class ReMapDataModule_OLD(pl.LightningDataModule):
         end_pos_each_chrom = indices[1:] - 10000
         positions_to_sample = []
         for starts, stops in zip(start_pos_each_chrom, end_pos_each_chrom):
-            positions_to_sample.append(np.arange(starts, stops, self.resolution_factor)[:-10]) ###!! THIS -10 WAS A QUICK FIX?? WHAT DOES IT DO, WHY IS IT NEEDED?
+            positions_to_sample.append(np.arange(starts, stops, window_size - 8*resolution_factor)[:-1])
         self.positions_to_sample_val = np.concatenate(positions_to_sample)
         
         ## CREATE DATASET
-        self.val_data = RemapDataset_OLD(
+        self.val_data = RemapDataset(
             self.val_loc,
             indices_to_sample=self.positions_to_sample_val,
             window_size=window_size,
             resolution=resolution_factor,
+            shave_edges=resolution_factor*4
             )
         
         # TEST DATA
@@ -411,15 +359,15 @@ class ReMapDataModule_OLD(pl.LightningDataModule):
         end_pos_each_chrom = indices[1:] - 10000
         positions_to_sample = []
         for starts, stops in zip(start_pos_each_chrom, end_pos_each_chrom):
-            positions_to_sample.append(np.arange(starts, stops, self.resolution_factor)[:-10]) ###!! THIS -10 WAS A QUICK FIX?? WHAT DOES IT DO, WHY IS IT NEEDED?
+            positions_to_sample.append(np.arange(starts, stops, window_size - 8*resolution_factor)[:-1])
         self.positions_to_sample_test = np.concatenate(positions_to_sample)
         
         ## CREATE DATASET
-        self.test_data = RemapDataset_OLD(
+        self.test_data = RemapDataset(
             self.test_loc,
             indices_to_sample=self.positions_to_sample_test,
             window_size=window_size,
-            resolution=resolution_factor,
+            shave_edges=resolution_factor*4
             )
 
 
@@ -430,7 +378,7 @@ class ReMapDataModule_OLD(pl.LightningDataModule):
         return DataLoader(
             self.train_data,
             batch_size=self.batch_size,
-            shuffle = True, # THIS SHOULD BE TRUE BUT THERE IS STILL AN ERROR WITH THE INDICES AT THE END OF THE CHROMS???? ##!!
+            shuffle = True,
             pin_memory=True,
             num_workers=self.num_workers,
             collate_fn=Collater(self.train_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
@@ -443,7 +391,7 @@ class ReMapDataModule_OLD(pl.LightningDataModule):
             shuffle=False, 
             pin_memory=True,
             num_workers=self.num_workers,
-            collate_fn=Collater(self.val_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
+            collate_fn=Collater_val(self.val_loc, self.TF_list, self.val_list, self.embeddings, TF_batch_size = self.TF_batch_size)
         )
 
     def test_dataloader(self):
@@ -471,11 +419,12 @@ class ReMapDataModule_OLD(pl.LightningDataModule):
             self.positions_to_sample_pred = self.positions_to_sample_test
         else:
             raise Exception("Not a valid data split")
-        self.predict_data = RemapDataset_OLD(
+        self.predict_data = RemapDataset(
             self.pred_loc,
             indices_to_sample=self.positions_to_sample_pred,
             window_size=self.window_size,
-            resolution=self.resolution_factor
+            resolution=self.resolution_factor,
+            shave_edges=self.resolution_factor*4
             )
     
     def predict_dataloader(self):
@@ -487,3 +436,68 @@ class ReMapDataModule_OLD(pl.LightningDataModule):
             num_workers=self.num_workers,
             collate_fn=Collater(self.pred_loc, self.predict_TF, self.embeddings, TF_batch_size = self.TF_batch_size)
         )
+
+   
+    
+class Collater_val():
+    def __init__(self, path, TF_list, val_list, embeddings, TF_batch_size = 0):
+        f = h5torch.File(path)
+        self.TF_batch_size = TF_batch_size
+        self.TF_list = TF_list
+        self.val_list = val_list
+        self.protein_index_list = np.concatenate(
+            [np.where(f["unstructured/protein_map"][:].astype('str') == i) for i in self.TF_list]
+            ).flatten()
+        embedding_list_temp = []
+        for i in self.protein_index_list:
+            embedding_list_temp.append(
+                #self.f["unstructured/prot_embeddings"][str(i)][:]
+                f[embeddings][str(i)][:]
+                )
+        self.embedding_list = embedding_list_temp
+        
+        self.protein_index_list_val = np.concatenate(
+            [np.where(f["unstructured/protein_map"][:].astype('str') == i) for i in self.val_list]
+            ).flatten()
+        embedding_list_temp = []
+        for i in self.protein_index_list_val:
+            embedding_list_temp.append(
+                #self.f["unstructured/prot_embeddings"][str(i)][:]
+                f[embeddings][str(i)][:]
+                )
+        self.embedding_list_val = embedding_list_temp
+
+    def __call__(self, batch):
+        # SAMPLE TFs (Too many cause memory issues)
+        Used_index = []
+        Used_embeddings = []
+        if self.TF_batch_size == 0:
+            Used_index = self.protein_index_list[:]
+            Used_embeddings = self.embedding_list[:]
+        else:
+            samples = random.sample(range(len(self.TF_list)), self.TF_batch_size)
+            Used_index = [self.protein_index_list[i] for i in samples]
+            Used_embeddings = [self.embedding_list[i] for i in samples]
+
+        # If you change the above part to use a HDF5 dataset of mean-embeddings
+        # you can code it here so that Used_embeddings is a torch.tensor (C, H)
+        # with C = number of TFs (classes) and H = hidden dimensions of the embeddings
+        # then in your model, you only need to process it with linear layers.
+
+        DNA, y = torch.utils.data.default_collate(batch)
+        y_train = y[:, Used_index]
+        
+        ## same for val:
+        Used_index_val = []
+        Used_embeddings_val = []
+        if self.TF_batch_size == 0:
+            Used_index_val = self.protein_index_list_val[:]
+            Used_embeddings_val = self.embedding_list_val[:]
+        else:
+            samples = random.sample(range(len(self.val_list)), self.TF_batch_size)
+            Used_index_val = [self.protein_index_list_val[i] for i in samples]
+            Used_embeddings_val = [self.embedding_list_val[i] for i in samples]
+
+        y_val = y[:, Used_index_val]
+        
+        return DNA, torch.tensor(np.array(Used_embeddings)), y_train, torch.tensor(np.array(Used_embeddings_val)), y_val

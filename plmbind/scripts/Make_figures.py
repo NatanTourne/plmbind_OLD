@@ -6,7 +6,7 @@ import pickle
 
 
 
-save_loc = "/home/natant/Thesis-plmbind/Results/20230314/"
+save_loc = "/home/natant/Thesis-plmbind/Results/20230316/"
 
 def plot_auroc_barplot(df, x, y, num_plots, per_plot, color_list, save_loc = None, **plot_kwargs):
     fig, ax = plt.subplots(num_plots,1,figsize=(10,2.5*num_plots))
