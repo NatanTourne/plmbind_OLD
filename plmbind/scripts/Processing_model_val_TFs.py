@@ -14,8 +14,8 @@ import pytorch_lightning as pl
 import pickle
 from torchmetrics.classification import MultilabelAUROC
 # Own imports
-from plmbind.data import ReMapDataModule_double_val
-from plmbind.models import FullTFModel_double_val
+from plmbind.data import ReMapDataModule
+from plmbind.models import FullTFModel
 
 
 def get_mean_embeddings(h5file, emb_name, TF_list):
@@ -50,10 +50,10 @@ def plot_auroc_barplot(df, x, y, num_plots, per_plot, color_list, save_loc = Non
 
 ## settings
 model_loc = "/home/natant/Thesis-plmbind/Results/20230317/Full-model-DNA-20230319_09:21:19-epoch=10-val_loss=0.00.ckpt"
-output_loc = "/home/natant/Thesis-plmbind/Results/20230317/DNA_"
+output_loc = "/home/natant/Thesis-plmbind/Results/20230317/train_TF_model_epoch10_"
 embeddings = "unstructured/t6_320_pad_trun"
 
-model = FullTFModel_double_val.load_from_checkpoint(model_loc)
+model = FullTFModel.load_from_checkpoint(model_loc)
 
 sample_window_size = 2**16 #32_768 #(2**15)
 resolution = 128 # if you change this you also have to change your model definition
@@ -67,7 +67,7 @@ with open("/home/natant/Thesis-plmbind/Thesis/utils/TF_split/val_TFs", "rb") as 
 # Create datamodule:
     # Seperate files for train, val, test
     # Protein embeddings are now specified (multiple sizes are possible)
-remap_datamodule = ReMapDataModule_double_val(
+remap_datamodule = ReMapDataModule(
     train_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/train_no_alts.h5t",
     val_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/val_no_alts.h5t",
     test_loc="/home/natant/Thesis-plmbind/Data/Not_used/ReMap_testing_2/test_no_alts.h5t",

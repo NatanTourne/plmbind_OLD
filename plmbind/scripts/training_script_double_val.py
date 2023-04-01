@@ -9,7 +9,7 @@ import pickle
 
 # Own imports
 from plmbind.data import ReMapDataModule_double_val
-from plmbind.models import FullTFModel_double_val
+from plmbind.models import FullTFModel_small
 
 from pytorch_lightning.callbacks import EarlyStopping
 
@@ -17,7 +17,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 wandb.finish()
 wandb.init(project="Thesis_experiments", entity="ntourne")
 wandb_logger = WandbLogger(name='Small_experiment',project='pytorchlightning')
-wandb_logger.experiment.config["Model"] = "Full_double_val"
+wandb_logger.experiment.config["Model"] = "small_double_val"
 wandb_logger.experiment.config["Embeddings"] = "unstructured/t6_320_pad_trun"
 wandb_logger.experiment.config["Resolution"] = 128
 
@@ -48,21 +48,22 @@ remap_datamodule = ReMapDataModule_double_val(
     ) 
 
 # Create model
-Full_model = FullTFModel_double_val(   
+Full_model = FullTFModel_small(   
     seq_len=sample_window_size,
     prot_embedding_dim=320,
     num_DNA_filters=50,
-    num_prot_filters=50,
+    num_prot_filters=25,
     DNA_kernel_size=10,
-    prot_kernel_size=10,
+    prot_kernel_size=5,
     dropout=0.25,
-    final_embeddings_size=128
+    final_embeddings_size=128,
+    calculate_val_tf_loss=True
     )
 
 # Create unique date timestamp
 date = datetime.now().strftime("%Y%m%d_%H:%M:%S")
 # Set output directory
-out_dir = "/home/natant/Thesis-plmbind/Results/20230317/" # Do not forget the last '/' !! 
+out_dir = "/home/natant/Thesis-plmbind/Results/20230322_2/" # Do not forget the last '/' !! 
 # Create checkpoint callback
 checkpoint_callback = ModelCheckpoint(
     monitor='val_loss_DNA',

@@ -69,7 +69,7 @@ class RemapDataset(h5torch.Dataset):
 
         return DNA, y
     
-class ReMapDataModule(pl.LightningDataModule):
+class ReMapDataModule_old(pl.LightningDataModule):
     def __init__(
         self,
         train_loc,
@@ -246,7 +246,7 @@ class Collater():
                 #self.f["unstructured/prot_embeddings"][str(i)][:]
                 f[embeddings][str(i)][:]
                 )
-        self.embedding_list = embedding_list_temp
+        self.embedding_list = embedding_list_temp[:]
 
     def __call__(self, batch):
         # SAMPLE TFs (Too many cause memory issues)
@@ -254,7 +254,7 @@ class Collater():
         Used_embeddings = []
         if self.TF_batch_size == 0:
             Used_index = self.protein_index_list[:]
-            Used_embeddings = self.embedding_list[:]
+            Used_embeddings = self.embedding_list
         else:
             samples = random.sample(range(len(self.TF_list)), self.TF_batch_size)
             Used_index = [self.protein_index_list[i] for i in samples]
@@ -273,7 +273,7 @@ class Collater():
 
 
 ######################## Testing validation TFs
-class ReMapDataModule_double_val(pl.LightningDataModule):
+class ReMapDataModule(pl.LightningDataModule):
     def __init__(
         self,
         train_loc,
@@ -286,7 +286,8 @@ class ReMapDataModule_double_val(pl.LightningDataModule):
         window_size=8192,
         resolution_factor=128,
         batch_size: int = 32,
-        num_workers = 3
+        num_workers = 3,
+        prefetch_factor = 2
     ):
         super().__init__()
         self.train_loc = train_loc
@@ -300,6 +301,7 @@ class ReMapDataModule_double_val(pl.LightningDataModule):
         self.TF_batch_size = TF_batch_size
         self.embeddings = embeddings
         self.num_workers = num_workers
+        self.prefetch_factor = prefetch_factor
 
         # TRAIN DATA
         ## GET INDICES
@@ -381,6 +383,7 @@ class ReMapDataModule_double_val(pl.LightningDataModule):
             shuffle = True,
             pin_memory=True,
             num_workers=self.num_workers,
+            prefetch_factor=self.prefetch_factor,
             collate_fn=Collater(self.train_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
         )
 
@@ -391,6 +394,7 @@ class ReMapDataModule_double_val(pl.LightningDataModule):
             shuffle=False, 
             pin_memory=True,
             num_workers=self.num_workers,
+            prefetch_factor=self.prefetch_factor,
             collate_fn=Collater_val(self.val_loc, self.TF_list, self.val_list, self.embeddings, TF_batch_size = self.TF_batch_size)
         )
 
@@ -401,6 +405,7 @@ class ReMapDataModule_double_val(pl.LightningDataModule):
             shuffle=False, 
             pin_memory=True,
             num_workers=self.num_workers,
+            prefetch_factor=self.prefetch_factor,
             collate_fn=Collater(self.test_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
         )
 
@@ -434,6 +439,7 @@ class ReMapDataModule_double_val(pl.LightningDataModule):
             shuffle=False, 
             pin_memory=True,
             num_workers=self.num_workers,
+            prefetch_factor=self.prefetch_factor,
             collate_fn=Collater(self.pred_loc, self.predict_TF, self.embeddings, TF_batch_size = self.TF_batch_size)
         )
 
@@ -454,7 +460,7 @@ class Collater_val():
                 #self.f["unstructured/prot_embeddings"][str(i)][:]
                 f[embeddings][str(i)][:]
                 )
-        self.embedding_list = embedding_list_temp
+        self.embedding_list = embedding_list_temp[:]
         
         self.protein_index_list_val = np.concatenate(
             [np.where(f["unstructured/protein_map"][:].astype('str') == i) for i in self.val_list]
@@ -465,15 +471,15 @@ class Collater_val():
                 #self.f["unstructured/prot_embeddings"][str(i)][:]
                 f[embeddings][str(i)][:]
                 )
-        self.embedding_list_val = embedding_list_temp
+        self.embedding_list_val = embedding_list_temp[:]
 
     def __call__(self, batch):
         # SAMPLE TFs (Too many cause memory issues)
         Used_index = []
         Used_embeddings = []
         if self.TF_batch_size == 0:
-            Used_index = self.protein_index_list[:]
-            Used_embeddings = self.embedding_list[:]
+            Used_index = self.protein_index_list
+            Used_embeddings = self.embedding_list
         else:
             samples = random.sample(range(len(self.TF_list)), self.TF_batch_size)
             Used_index = [self.protein_index_list[i] for i in samples]
