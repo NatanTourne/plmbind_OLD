@@ -39,16 +39,16 @@ for i in range(3):
         preds = pickle.load(f)
     AUROC = MultilabelAUROC(num_labels=len(train_TF_splits[i]), average='none')
     AverageP = MultilabelAveragePrecision(num_labels=len(train_TF_splits[i]), average='none')
-    train_TF_loss_model_val_DNA_train_TF_AUROC.append(AUROC(torch.cat(list(preds[1])), torch.cat(list(preds[0]))))
-    train_TF_loss_model_val_DNA_train_TF_AvP.append(AverageP(torch.cat(list(preds[1])), torch.cat(list(preds[0]))))
+    train_TF_loss_model_val_DNA_train_TF_AUROC.append(AUROC(torch.cat(list(preds[2])), torch.cat(list(preds[0]))))
+    train_TF_loss_model_val_DNA_train_TF_AvP.append(AverageP(torch.cat(list(preds[2])), torch.cat(list(preds[0]))))
 
 
 with open(args.out_dir + "train_TF_loss_model_val_DNA_val_TF.pkl", 'rb') as f:
     preds = pickle.load(f)
 AUROC = MultilabelAUROC(num_labels=len(val_TFs), average='none')
 AverageP = MultilabelAveragePrecision(num_labels=len(val_TFs), average='none')
-train_TF_loss_model_val_DNA_val_TF_AUROC = AUROC(torch.cat(list(preds[1])), torch.cat(list(preds[0])))
-train_TF_loss_model_val_DNA_val_TF_AvP = AverageP(torch.cat(list(preds[1])), torch.cat(list(preds[0])))
+train_TF_loss_model_val_DNA_val_TF_AUROC = AUROC(torch.cat(list(preds[2])), torch.cat(list(preds[0])))
+train_TF_loss_model_val_DNA_val_TF_AvP = AverageP(torch.cat(list(preds[2])), torch.cat(list(preds[0])))
 
 train_TF_loss_results = pd.DataFrame({
     "HGNC symbol": train_TFs + val_TFs, 
@@ -66,15 +66,15 @@ for i in range(3):
         preds = pickle.load(f)
     AUROC = MultilabelAUROC(num_labels=len(train_TF_splits[i]), average='none')
     AverageP = MultilabelAveragePrecision(num_labels=len(train_TF_splits[i]), average='none')
-    val_TF_loss_model_val_DNA_train_TF_AUROC.append(AUROC(torch.cat(list(preds[1])), torch.cat(list(preds[0]))))
-    val_TF_loss_model_val_DNA_train_TF_AvP.append(AverageP(torch.cat(list(preds[1])), torch.cat(list(preds[0]))))
+    val_TF_loss_model_val_DNA_train_TF_AUROC.append(AUROC(torch.cat(list(preds[2])), torch.cat(list(preds[0]))))
+    val_TF_loss_model_val_DNA_train_TF_AvP.append(AverageP(torch.cat(list(preds[2])), torch.cat(list(preds[0]))))
 
 with open(args.out_dir + "val_TF_loss_model_val_DNA_val_TF.pkl", 'rb') as f:
     preds = pickle.load(f)
 AUROC = MultilabelAUROC(num_labels=len(val_TFs), average='none')
 AverageP = MultilabelAveragePrecision(num_labels=len(val_TFs), average='none')
-val_TF_loss_model_val_DNA_val_TF_AUROC = AUROC(torch.cat(list(preds[1])), torch.cat(list(preds[0])))
-val_TF_loss_model_val_DNA_val_TF_AvP = AverageP(torch.cat(list(preds[1])), torch.cat(list(preds[0])))
+val_TF_loss_model_val_DNA_val_TF_AUROC = AUROC(torch.cat(list(preds[2])), torch.cat(list(preds[0])))
+val_TF_loss_model_val_DNA_val_TF_AvP = AverageP(torch.cat(list(preds[2])), torch.cat(list(preds[0])))
 
 val_TF_loss_results = pd.DataFrame({
     "HGNC symbol": train_TFs + val_TFs, 

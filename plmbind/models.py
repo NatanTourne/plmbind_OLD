@@ -230,26 +230,26 @@ class PlmbindFullModel(pl.LightningModule):
     def training_step(self, train_batch, batch_idx):
         x_DNA, x_prot, y = train_batch
         y_hat = self(x_DNA, x_prot)
-        loss = self.loss_function(y_hat, y)
+        loss = self.loss_function(y_hat, y.float())
         self.log('train_loss', loss)
         return loss
 
     def test_step(self, test_batch, batch_idx):
         x_DNA, x_prot, y = test_batch
         y_hat = self.forward(x_DNA, x_prot)
-        loss = self.loss_function(y_hat, y)
+        loss = self.loss_function(y_hat, y.float())
         self.log('test_loss', loss)
         return loss
 
     def validation_step(self, valid_batch, batch_idx):
         x_DNA, x_prot, y, x_prot_val, y_val = valid_batch
         y_hat = self.forward(x_DNA, x_prot)
-        loss = self.loss_function(y_hat, y)
+        loss = self.loss_function(y_hat, y.float())
         self.log('val_loss_DNA', loss)
         
         if self.calculate_val_tf_loss:
             y_hat_val = self.forward(x_DNA, x_prot_val)
-            loss_val = self.loss_function(y_hat_val, y_val)
+            loss_val = self.loss_function(y_hat_val, y_val.float())
             self.log('val_loss_TF', loss_val)
 
         return loss
