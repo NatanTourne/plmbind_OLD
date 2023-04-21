@@ -1,0 +1,6 @@
+DNA_dropout: 0.25
+DNA_kernel_size: 10
+learning_rate: 0.0001
+num_DNA_filters: 90
+num_classes: 657
+seq_len: 65536

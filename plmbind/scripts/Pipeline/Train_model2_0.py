@@ -38,6 +38,11 @@ parser.add_argument("--latent_vector_size", type=int, default=128)
 parser.add_argument("--calculate_val_TF_loss", type=bool, default=True)
 parser.add_argument("--learning_rate", type=float, default=0.00001)
 
+parser.add_argument("--max_epochs", type=int, default=1000)
+parser.add_argument("--limit_train_batches", type=float, default=1.0)
+parser.add_argument("--limit_val_batches", type=float, default=1.0)
+
+parser.add_argument("--pre_trained_DNA_branch", default = "None")
 
 parser.add_argument("--Train_TFs_loc",help="Location of pickled list of train TFs", default = "/home/natant/Thesis-plmbind/Thesis/utils/TF_split/train_TFs")
 parser.add_argument("--Val_TFs_loc", help="Location of pickled list of validation TFs", default = "/home/natant/Thesis-plmbind/Thesis/utils/TF_split/val_TFs")
@@ -66,7 +71,7 @@ Embeddings = "unstructured/" + args.emb
 wandb.finish()
 wandb.init(project="Thesis_experiments", entity="ntourne")
 wandb_logger = WandbLogger(name='Small_experiment',project='pytorchlightning')
-wandb_logger.experiment.config["Model"] = "two_branch_" + args.prot_branch
+wandb_logger.experiment.config["Model"] = "two_branch"
 wandb_logger.experiment.config["Embeddings"] = args.emb
 
 # Load list of TFs used for training (embeddings will be fetched from dataloader)
@@ -102,7 +107,8 @@ Full_model = PlmbindFullModel(
         protein_dropout=args.prot_dropout,
         final_embeddings_size=args.latent_vector_size,
         calculate_val_tf_loss=args.calculate_val_TF_loss,
-        learning_rate=args.learning_rate
+        learning_rate=args.learning_rate,
+        DNA_branch_path = args.pre_trained_DNA_branch
         )
 
 
@@ -124,9 +130,11 @@ early_stopping = EarlyStopping(args.early_stop)
 
 # Create Trainer
 trainer = pl.Trainer(
-    max_epochs = 1000, 
+    max_epochs = args.max_epochs,
+    limit_train_batches=args.limit_train_batches,
+    limit_val_batches=args.limit_val_batches,
     accelerator = "gpu", 
-    devices = [1],
+    devices = [0],
     callbacks=[checkpoint_callback, checkpoint_callback_val_TF, early_stopping],
     logger = wandb_logger
     )

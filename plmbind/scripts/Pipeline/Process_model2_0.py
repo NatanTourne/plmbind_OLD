@@ -14,7 +14,7 @@ from plmbind.models import PlmbindFullModel
 
 def get_mean_embeddings(h5file, emb_name, TF_list):
     f = h5torch.File(h5file)
-    protein_index_list = np.concatenate([np.where(f["unstructured/protein_map"][:].astype('str') == i) for i in TF_list]).flatten()
+    protein_index_list = np.concatenate([np.where(f["1/prots"][:].astype('str') == i) for i in TF_list]).flatten()
     embedding_list = []
     for i in protein_index_list:
         embedding_list.append(f[emb_name][str(i)][:])
@@ -23,7 +23,7 @@ def get_mean_embeddings(h5file, emb_name, TF_list):
 
 def get_latent_vectors(model, h5file, emb_name, TF_list):
     f = h5torch.File(h5file)
-    protein_index_list = np.concatenate([np.where(f["unstructured/protein_map"][:].astype('str') == i) for i in TF_list]).flatten()
+    protein_index_list = np.concatenate([np.where(f["1/prots"][:].astype('str') == i) for i in TF_list]).flatten()
     embedding_list = []
     for i in protein_index_list:
         embedding_list.append(f[emb_name][str(i)][:])
@@ -96,7 +96,7 @@ remap_datamodule = ReMapDataModule2_0(
 trainer = pl.Trainer(
     max_epochs = 10000, 
     accelerator = "gpu", 
-    devices = [1]
+    devices = [0]
     )
 
 for file in os.listdir(args.out_dir):

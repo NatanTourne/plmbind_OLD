@@ -319,8 +319,6 @@ class Collater():
 
         return DNA, torch.tensor(np.array(Used_embeddings)), y
     
-
-
 ######################## Testing validation TFs
 class ReMapDataModule(pl.LightningDataModule):
     def __init__(

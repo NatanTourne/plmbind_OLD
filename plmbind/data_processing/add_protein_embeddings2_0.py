@@ -9,10 +9,10 @@ from transformers import EsmModel, EsmConfig, EsmTokenizer
 import requests
 from tqdm import tqdm, trange
 
-used_model = "facebook/esm2_t6_8M_UR50D" #"facebook/esm2_t30_150M_UR50D" #"facebook/esm2_t6_8M_UR50D"
+used_model = "facebook/esm2_t30_150M_UR50D" #"facebook/esm2_t30_150M_UR50D" #"facebook/esm2_t6_8M_UR50D"
 h5_path = "/home/data/shared/natant/Data/test_no_alts.h5t"
 seqs_path = "/home/natant/Thesis-plmbind/Testing_ground/sequences.fasta"
-embeddings_name = "t6_320_pad_trun"#"t30_640_pad_trun" # "t12_480_pad_trun" # "t6_320_pad_trun"
+embeddings_name = "t30_640_pad_trun"#"t30_640_pad_trun" # "t12_480_pad_trun" # "t6_320_pad_trun"
 f = h5torch.File(h5_path, "a")
 
 sequences = {fasta.id:str(fasta.seq) for fasta in SeqIO.parse(open(seqs_path),'fasta')}

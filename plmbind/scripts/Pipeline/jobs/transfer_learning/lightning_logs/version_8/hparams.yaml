@@ -1,0 +1,14 @@
+DNA_branch_path: /home/data/shared/natant/Results/DNA_model_transfer/DNA_large/DNA-model-20230415_22:26:46-epoch=06-val_loss=0.03.ckpt
+DNA_dropout: 0.25
+DNA_kernel_size: 10
+calculate_val_tf_loss: true
+final_embeddings_size: 128
+initial_prot_kernel_size: 1
+learning_rate: 1.0e-05
+linear_layer_size_prot: 64
+num_DNA_filters: 90
+num_prot_filters: 50
+prot_embedding_dim: 480
+prot_kernel_size: 10
+protein_dropout: 0.25
+seq_len: 65536

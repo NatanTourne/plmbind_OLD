@@ -55,7 +55,8 @@ Full_model = PlmbindFullModel(
     DNA_kernel_size=10,
     prot_kernel_size=5,
     final_embeddings_size=128,
-    calculate_val_tf_loss=True
+    calculate_val_tf_loss=True,
+    DNA_branch_path = "/home/natant/Thesis-plmbind/Testing_ground/testing_DL2_0/test_module/DNA-model-20230413_14:47:06-epoch=00-val_loss=0.69.ckpt"
     )
 
 # Create unique date timestamp
