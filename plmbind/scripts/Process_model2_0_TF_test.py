@@ -76,6 +76,8 @@ with open(args.Train_TFs_loc, "rb") as f:
     train_TFs = pickle.load(f)
 with open(args.Val_TFs_loc, "rb") as f:
     val_TFs = pickle.load(f)
+with open(args.Test_TFs_loc, "rb") as f:
+    test_TFs = pickle.load(f)
 
 # Create datamodule: 
     # Seperate files for train, val, test
@@ -110,107 +112,20 @@ Full_model = PlmbindFullModel.load_from_checkpoint(val_TF_loss_model_loc)
 
     
 # Processing Validation TFs
-remap_datamodule.predict_setup(val_TFs, "val")
+remap_datamodule.predict_setup(test_TFs, "test")
 preds = list(zip(*trainer.predict(Full_model, datamodule=remap_datamodule)))
-with open(args.out_dir+'val_TF_loss_model_val_DNA_val_TF.pkl', 'wb') as f:
+with open(args.out_dir+'val_TF_loss_model_test_DNA_test_TF.pkl', 'wb') as f:
     pickle.dump(preds, f)
 
-# Processing Train TFs
-preds = []
-train_TF_splits = [train_TFs[0:200], train_TFs[200:400], train_TFs[400:]]
-for count, subset in enumerate(train_TF_splits):
-    remap_datamodule.predict_setup(subset, "val")
-    preds = list(zip(*trainer.predict(Full_model, datamodule=remap_datamodule)))
-    with open(args.out_dir+'val_TF_loss_model_val_DNA_train_TF_part_' + str(count+1) + '.pkl', 'wb') as f:
-        pickle.dump(preds, f)
-    preds = []
 
-remap_datamodule.predict_setup(train_TFs, "val")
 
-train_latent_vectors = get_latent_vectors(
-    model=Full_model, 
-    h5file = args.train_loc, 
-    emb_name=Embeddings, 
-    TF_list = train_TFs
-    )
-val_latent_vectors = get_latent_vectors(
-    model=Full_model, 
-    h5file = args.train_loc, 
-    emb_name=Embeddings, 
-    TF_list = val_TFs
-    )
-with open(args.out_dir+'val_TF_loss_model_train_latent_vectors.pkl', 'wb') as f:
-    pickle.dump(train_latent_vectors, f)
-with open(args.out_dir+'val_TF_loss_model_val_latent_vectors.pkl', 'wb') as f:
-    pickle.dump(val_latent_vectors, f)
-
-train_mean_embs = get_mean_embeddings(
-    h5file = args.train_loc, 
-    emb_name=Embeddings, 
-    TF_list = train_TFs
-    )
-val_mean_embs = get_mean_embeddings(
-    h5file = args.train_loc, 
-    emb_name=Embeddings, 
-    TF_list = val_TFs
-    )
-
-with open(args.out_dir + 'val_TF_loss_model_train_mean_embs.pkl', 'wb') as f:
-    pickle.dump(train_mean_embs, f)
-with open(args.out_dir + 'val_TF_loss_model_val_mean_embs.pkl', 'wb') as f:
-    pickle.dump(val_mean_embs, f)
-    
 
 Full_model = PlmbindFullModel.load_from_checkpoint(train_TF_loss_model_loc)
-
-    
+ 
 # Processing Validation TFs
-remap_datamodule.predict_setup(val_TFs, "val")
+remap_datamodule.predict_setup(test_TFs, "test")
 preds = list(zip(*trainer.predict(Full_model, datamodule=remap_datamodule)))
-with open(args.out_dir+'train_TF_loss_model_val_DNA_val_TF.pkl', 'wb') as f:
+with open(args.out_dir+'train_TF_loss_model_test_DNA_test_TF.pkl', 'wb') as f:
     pickle.dump(preds, f)
 
-# Processing Train TFs
-preds = []
-train_TF_splits = [train_TFs[0:200], train_TFs[200:400], train_TFs[400:]]
-for count, subset in enumerate(train_TF_splits):
-    remap_datamodule.predict_setup(subset, "val")
-    preds = list(zip(*trainer.predict(Full_model, datamodule=remap_datamodule)))
-    with open(args.out_dir+'train_TF_loss_model_val_DNA_train_TF_part_'+str(count+1)+'.pkl', 'wb') as f:
-        pickle.dump(preds, f)
-    preds = []
     
-remap_datamodule.predict_setup(train_TFs, "val")
-
-train_latent_vectors = get_latent_vectors(
-    model=Full_model, 
-    h5file = args.train_loc, 
-    emb_name=Embeddings, 
-    TF_list = train_TFs
-    )
-val_latent_vectors = get_latent_vectors(
-    model=Full_model, 
-    h5file = args.train_loc, 
-    emb_name=Embeddings, 
-    TF_list = val_TFs
-    )
-with open(args.out_dir+'train_TF_loss_model_train_latent_vectors.pkl', 'wb') as f:
-    pickle.dump(train_latent_vectors, f)
-with open(args.out_dir+'train_TF_loss_model_val_latent_vectors.pkl', 'wb') as f:
-    pickle.dump(val_latent_vectors, f)
-
-train_mean_embs = get_mean_embeddings(
-    h5file = args.train_loc, 
-    emb_name=Embeddings, 
-    TF_list = train_TFs
-    )
-val_mean_embs = get_mean_embeddings(
-    h5file = args.train_loc, 
-    emb_name=Embeddings, 
-    TF_list = val_TFs
-    )
-
-with open(args.out_dir + 'train_TF_loss_model_train_mean_embs.pkl', 'wb') as f:
-    pickle.dump(train_mean_embs, f)
-with open(args.out_dir + 'train_TF_loss_model_val_mean_embs.pkl', 'wb') as f:
-    pickle.dump(val_mean_embs, f)

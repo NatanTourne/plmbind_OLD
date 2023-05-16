@@ -11,7 +11,7 @@ import pandas as pd
 
 # Own imports
 from plmbind.data import ReMapDataModule2_0
-from plmbind.models import PlmbindFullModel_kmer
+from plmbind.models import PlmbindFullModel
 
 
 # arg parser
@@ -20,11 +20,11 @@ parser = argparse.ArgumentParser(
     description='This trains the full two branch model.')
 
 parser.add_argument("--out_dir", help="Dictory for output files", required=True)
+parser.add_argument("--checkpoint", help="checkpoint location", required=True)
 parser.add_argument("--prot_branch", help="small or big", default="small")
 parser.add_argument("--early_stop", help="Early stopping parameter. Either val_loss_DNA or val_loss_TF", default="val_loss_DNA")
-parser.add_argument("--emb", help="kmers to use", default = "3mer_pad_trun")
-parser.add_argument("--kmer_embedding_size", help="kmers embedding size to use", default=32)
-parser.add_argument("--num_kmers", help="The size of the embeddings", type=int, default=8000)
+parser.add_argument("--emb", help="Protein embeddings to use", default = "t6_320_pad_trun")
+parser.add_argument("--emb_dim", help="The size of the embeddings", type=int, default=320)
 parser.add_argument("--window_size", help="The window size", type=int, default=2**16)
 parser.add_argument("--batch_size", help="The batch size", type=int, default=16)
 parser.add_argument("--TF_batch_size",  help="The number of TFs to subsample", type=int, default=0)
@@ -38,6 +38,10 @@ parser.add_argument("--DNA_dropout", type=float, default=0.25)
 parser.add_argument("--latent_vector_size", type=int, default=128)
 parser.add_argument("--calculate_val_TF_loss", type=bool, default=True)
 parser.add_argument("--learning_rate", type=float, default=0.00001)
+
+parser.add_argument("--max_epochs", type=int, default=1000)
+parser.add_argument("--limit_train_batches", type=float, default=1.0)
+parser.add_argument("--limit_val_batches", type=float, default=1.0)
 
 parser.add_argument("--pre_trained_DNA_branch", default = "None")
 
@@ -68,7 +72,7 @@ Embeddings = "unstructured/" + args.emb
 wandb.finish()
 wandb.init(project="Thesis_experiments", entity="ntourne")
 wandb_logger = WandbLogger(name='Small_experiment',project='pytorchlightning')
-wandb_logger.experiment.config["Model"] = "two_branch_kmer"
+wandb_logger.experiment.config["Model"] = "two_branch"
 wandb_logger.experiment.config["Embeddings"] = args.emb
 
 # Load list of TFs used for training (embeddings will be fetched from dataloader)
@@ -93,21 +97,7 @@ remap_datamodule = ReMapDataModule2_0(
     ) 
 
 # Create model
-Full_model = PlmbindFullModel_kmer(   
-        seq_len=args.window_size,
-        num_kmers=args.num_kmers,
-        kmer_embedding_size=args.kmer_embedding_size,
-        num_DNA_filters=args.num_DNA_filters,
-        num_prot_filters=args.num_prot_filters,
-        DNA_kernel_size=args.DNA_kernel_size,
-        prot_kernel_size=args.prot_kernel_size,
-        DNA_dropout=args.DNA_dropout,
-        protein_dropout=args.prot_dropout,
-        final_embeddings_size=args.latent_vector_size,
-        calculate_val_tf_loss=args.calculate_val_TF_loss,
-        learning_rate=args.learning_rate,
-        DNA_branch_path = args.pre_trained_DNA_branch
-        )
+Full_model = PlmbindFullModel.load_from_checkpoint(args.checkpoint)
 
 
 
@@ -115,12 +105,12 @@ Full_model = PlmbindFullModel_kmer(
 checkpoint_callback = ModelCheckpoint(
     monitor='val_loss_DNA',
     dirpath=args.out_dir,
-    filename='Full-kmer-model-train_TF_loss-'+date+'-{epoch:02d}-{val_loss_DNA:.2f}-{val_loss_TF:.2f}'
+    filename='Full-model-train_TF_loss-'+date+'-{epoch:02d}-{val_loss_DNA:.2f}-{val_loss_TF:.2f}'
     )
 checkpoint_callback_val_TF = ModelCheckpoint(
     monitor='val_loss_TF',
     dirpath=args.out_dir,
-    filename='Full-kmer-model-val_TF_loss-'+date+'-{epoch:02d}-{val_loss_DNA:.2f}-{val_loss_TF:.2f}'
+    filename='Full-model-val_TF_loss-'+date+'-{epoch:02d}-{val_loss_DNA:.2f}-{val_loss_TF:.2f}'
     )
 
 # Create early stopping callback
@@ -128,15 +118,19 @@ early_stopping = EarlyStopping(args.early_stop)
 
 # Create Trainer
 trainer = pl.Trainer(
-    max_epochs = 1000, 
+    max_epochs = args.max_epochs,
+    limit_train_batches=args.limit_train_batches,
+    limit_val_batches=args.limit_val_batches,
     accelerator = "gpu", 
     devices = [1],
     callbacks=[checkpoint_callback, checkpoint_callback_val_TF, early_stopping],
     logger = wandb_logger
     )
 
+# Create 
+
 # Fit model
-trainer.fit(Full_model, datamodule=remap_datamodule)
+trainer.fit(Full_model, datamodule=remap_datamodule) #, ckpt_path=args.checkpoint)
 
 # Save checkpoint
 trainer.save_checkpoint(args.out_dir + 'Full-model-'+date+'.ckpt')

@@ -4,13 +4,13 @@ import torch
 from Bio import SeqIO
 from tqdm import tqdm
 
-seqs_path = "/home/natant/Thesis-plmbind/Testing_ground/TF_sequences.fasta"
+seqs_path = "/home/natant/Thesis-plmbind/Thesis/utils/data_processing/TF_sequences.fasta"
 sequences = {fasta.id:str(fasta.seq) for fasta in SeqIO.parse(open(seqs_path),'fasta')}
-h5_path = "/home/data/shared/natant/Data/test_no_alts.h5t"
+h5_path = "/home/data/shared/natant/Data/train_no_alts.h5t"
 f = h5torch.File(h5_path, "a")
 
-n = 3
-emb_name = "3mer_pad_trun"
+n = 2 #3
+emb_name = "2mer_pad_trun" #"3mer_pad_trun"
 TF_names = f["1/prots"][:].astype("str")
 
 embedding_list = []
@@ -39,7 +39,7 @@ f.register(np.array(embedding_list), axis = "unstructured", mode="separate", nam
 f.close()
 print("done")
 
-h5_path = "/home/data/shared/natant/Data/train_no_alts.h5t"
+h5_path = "/home/data/shared/natant/Data/test_no_alts.h5t"
 f = h5torch.File(h5_path, "a")
 f.register(np.array(embedding_list), axis = "unstructured", mode="separate", name=emb_name, dtype_save = "int32", dtype_load = "int32")
 f.close()

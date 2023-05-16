@@ -68,7 +68,7 @@ remap_datamodule = ReMapDataModule2_0(
 trainer = pl.Trainer(
     max_epochs = 10000, 
     accelerator = "gpu", 
-    devices = [0]
+    devices = [1]
     )
 
 for file in os.listdir(args.out_dir):
