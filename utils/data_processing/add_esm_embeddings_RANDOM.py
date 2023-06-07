@@ -11,14 +11,14 @@ from tqdm import tqdm, trange
 
 h5_path = "/home/data/shared/natant/Data/train_no_alts.h5t"
 seqs_path = "/home/natant/Thesis-plmbind/Testing_ground/sequences.fasta"
-embeddings_name = "t6_320_RANDOM"#"t30_640_pad_trun" # "t12_480_pad_trun" # "t6_320_pad_trun"
+embeddings_name = "t12_480_RANDOM"#"t30_640_pad_trun" # "t12_480_pad_trun" # "t6_320_pad_trun"
 f = h5torch.File(h5_path, "a")
 
 sequences = {fasta.id:str(fasta.seq) for fasta in SeqIO.parse(open(seqs_path),'fasta')}
 
 TF_names = f["1/prots"][:].astype("str")
 
-embeddings = torch.FloatTensor(len(TF_names), 1024, 320).uniform_(-5, 5)
+embeddings = torch.FloatTensor(len(TF_names), 1024, 480).uniform_(-5, 5)
 
 
 f.register(np.array(embeddings), axis = "unstructured", mode="separate", name=embeddings_name, dtype_save = "float32", dtype_load = "float32")
