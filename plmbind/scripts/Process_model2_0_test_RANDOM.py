@@ -62,7 +62,7 @@ parser.add_argument("--val_loc", help="Location of validation data", default ="/
 parser.add_argument("--test_loc", help="Location of test data", default ="/home/data/shared/natant/Data/test_no_alts.h5t")
 
 args = parser.parse_args()
-
+ 
 # Create unique date timestamp
 date = datetime.now().strftime("%Y%m%d_%H:%M:%S")
 
