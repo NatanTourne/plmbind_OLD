@@ -281,8 +281,178 @@ class PlmbindFullModel(pl.LightningModule):
     
     def get_TF_latent_vector(self, TF_emb):
         return self.conv_net_proteins(TF_emb.permute(0, 2, 1))
-    
 
+def focal_loss(y_hat, y, gamma):
+    return -(y.float()*(1-y_hat.float().sigmoid())**(gamma)*y_hat.float().sigmoid().log()+(1-y.float())*(y_hat.float().sigmoid())**(gamma)*(1-y_hat.float().sigmoid()).log()).mean()
+    
+class FocalLoss(nn.Module):
+    def __init__(self):
+        super(FocalLoss, self).__init__()
+
+    def forward(self, y_hat, y, gamma):
+        loss = -(y.float()*(1-y_hat.float().sigmoid())**(gamma)*y_hat.float().sigmoid().log()+(1-y.float())*(y_hat.float().sigmoid())**(gamma)*(1-y_hat.float().sigmoid()).log())
+        return loss.mean()
+    
+class PlmbindFullModel_focal(pl.LightningModule):
+    """
+    Still have to add this.
+    """
+    def __init__(
+        self,
+        seq_len,
+        prot_embedding_dim,
+        num_DNA_filters=20,
+        num_prot_filters=20,
+        DNA_kernel_size=10,
+        prot_kernel_size=10,
+        initial_prot_kernel_size=1,
+        DNA_dropout=0.25,
+        protein_dropout=0.25,
+        linear_layer_size_prot = 64,
+        final_embeddings_size=64,
+        learning_rate=1e-5,
+        calculate_val_tf_loss = True,
+        DNA_branch_path = "None",
+        gamma = 2
+    ):
+        super(PlmbindFullModel_focal, self).__init__()
+        self.learning_rate = learning_rate
+        self.calculate_val_tf_loss = calculate_val_tf_loss
+        # Define metrics and loss function
+        self.loss_function = FocalLoss()
+        self.gamma = gamma
+        self.seq_len = seq_len
+        nucleotide_weights = torch.FloatTensor(
+            [[1, 0, 0, 0],
+             [0, 1, 0, 0],
+             [0, 0, 1, 0],
+             [0, 0, 0, 1],
+             [0, 0, 0, 0]]
+            )
+        self.embedding = nn.Embedding.from_pretrained(nucleotide_weights)
+
+        # The DNA branch of the model
+        # if resolution is 128: this means that we need 7 times pooling layers that half the "nucleotide"
+        # dimension. After that we also need to shave off the edges, which I set in the dataloader to 4
+        # also, you need to use padding in the convs to keep the dimensions there constant.
+        if DNA_branch_path == "None":
+            print("Initializing new DNA branch")
+            self.DNA_branch = DNA_branch(num_DNA_filters, DNA_kernel_size, DNA_dropout)
+        else:
+            print("Using pretrained DNA branch")
+            self.DNA_branch = DNA_branch(num_DNA_filters, DNA_kernel_size, DNA_dropout)
+            DNA_model_checkpoint = torch.load(DNA_branch_path)
+            full_pretrained_dict = DNA_model_checkpoint["state_dict"]
+            pretrained_dict = {k[11:]: v for k, v in full_pretrained_dict.items() if k.split(".")[0] == "DNA_branch"}            
+            self.DNA_branch.load_state_dict(state_dict = pretrained_dict)
+            
+        self.conv_net_final_layer = nn.Sequential(nn.Conv1d(num_DNA_filters, final_embeddings_size, kernel_size=1))
+        # The Protein branch of the model
+        self.conv_net_proteins = nn.Sequential(
+            nn.Conv1d(prot_embedding_dim, int(prot_embedding_dim/4), kernel_size = initial_prot_kernel_size, padding="same"),
+            nn.ReLU(),
+            nn.Dropout(protein_dropout),
+            
+            Permute(0,2,1),
+            nn.LayerNorm(int(prot_embedding_dim/4)),
+            Permute(0,2,1),
+            nn.Conv1d(int(prot_embedding_dim/4), int(prot_embedding_dim/8), initial_prot_kernel_size, padding="same"),
+            nn.ReLU(),
+            nn.Dropout(protein_dropout),
+            
+            Permute(0,2,1),
+            nn.LayerNorm(int(prot_embedding_dim/8)),
+            Permute(0,2,1),
+            nn.Conv1d(int(prot_embedding_dim/8), num_prot_filters, initial_prot_kernel_size, padding="same"),
+            nn.ReLU(),
+            nn.Dropout(protein_dropout),
+            
+            ResidualBlock(num_prot_filters, prot_kernel_size, protein_dropout),
+            ResidualBlock(num_prot_filters, prot_kernel_size, protein_dropout),
+            ResidualBlock(num_prot_filters, prot_kernel_size, protein_dropout),
+
+            GlobalPool(pooled_axis = 2, mode = 'max'),
+            nn.Flatten(),
+            
+            nn.LayerNorm(num_prot_filters), # before or after linear layer??
+            nn.Linear(num_prot_filters,linear_layer_size_prot),
+            nn.Dropout(protein_dropout),
+            nn.ReLU(),
+            
+            nn.LayerNorm(linear_layer_size_prot),
+            nn.Linear(linear_layer_size_prot, linear_layer_size_prot),
+            nn.Dropout(protein_dropout),
+            nn.ReLU(),
+            
+            nn.LayerNorm(linear_layer_size_prot),
+            nn.Linear(linear_layer_size_prot, linear_layer_size_prot),
+            nn.Dropout(protein_dropout),
+            nn.ReLU(),
+            
+            nn.LayerNorm(linear_layer_size_prot),
+            nn.Linear(linear_layer_size_prot, linear_layer_size_prot),
+            nn.Dropout(protein_dropout),
+            nn.ReLU(),
+            
+            nn.LayerNorm(linear_layer_size_prot),
+            nn.Linear(linear_layer_size_prot, final_embeddings_size)
+        )
+        self.save_hyperparameters()
+
+    def forward(self, x_DNA_in, x_prot_in):
+        # Run DNA branch
+        x_DNA = self.conv_net_final_layer(self.DNA_branch(self.embedding(x_DNA_in).permute(0, 2, 1))) # B x H x L_y
+
+        x_prot = self.conv_net_proteins(x_prot_in.permute(0, 2, 1)) # C x H
+    
+        # with `y` being B x C x L_y
+
+        # Take the dot product
+        x_product = torch.einsum("b h l, c h -> b c l", x_DNA, x_prot)
+
+        return x_product
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
+        return optimizer
+
+    def training_step(self, train_batch, batch_idx):
+        x_DNA, x_prot, y = train_batch
+        y_hat = self(x_DNA, x_prot)
+        loss = self.loss_function(y_hat, y.float(), self.gamma)
+        self.log('train_loss', loss)
+        return loss
+
+    def test_step(self, test_batch, batch_idx):
+        x_DNA, x_prot, y = test_batch
+        y_hat = self.forward(x_DNA, x_prot)
+        loss = self.loss_function(y_hat, y.float(), self.gamma)
+        self.log('test_loss', loss)
+        return loss
+
+    def validation_step(self, valid_batch, batch_idx):
+        x_DNA, x_prot, y, x_prot_val, y_val = valid_batch
+        y_hat = self.forward(x_DNA, x_prot)
+        loss = self.loss_function(y_hat, y.float(), self.gamma)
+        self.log('val_loss_DNA', loss)
+        
+        if self.calculate_val_tf_loss:
+            y_hat_val = self.forward(x_DNA, x_prot_val)
+            loss_val = self.loss_function(y_hat_val, y_val.float(), self.gamma)
+            self.log('val_loss_TF', loss_val)
+
+        return loss
+        
+    def predict_step(self, batch, batch_idx):
+        x_DNA, x_prot, y = batch
+        y_hat = self.forward(x_DNA, x_prot)
+        y_hat_sigmoid = torch.sigmoid(y_hat).detach()
+        return y.to(torch.int8), y_hat.to(torch.float16), y_hat_sigmoid.to(torch.float16)
+        #return y, y_hat, y_hat_sigmoid
+    
+    def get_TF_latent_vector(self, TF_emb):
+        return self.conv_net_proteins(TF_emb.permute(0, 2, 1))
+    
 class MultilabelModel(pl.LightningModule):
     """
     Still have to add this.
