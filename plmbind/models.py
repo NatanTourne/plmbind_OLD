@@ -49,6 +49,16 @@ class GlobalPool(nn.Module):
     def forward(self, x):
         return self.op(x)
 
+class FocalLoss(nn.Module):
+    def __init__(self, gamma):
+        super(FocalLoss, self).__init__()
+        self.gamma = gamma
+
+    def forward(self, y_hat, y):
+        
+        loss = -(y.float()*(1-y_hat.float().sigmoid())**(self.gamma)*y_hat.float().sigmoid().log()+(1-y.float())*(y_hat.float().sigmoid())**(self.gamma)*(1-y_hat.float().sigmoid()).log())
+        return loss.mean()
+
 class DNA_branch(nn.Module):
     def __init__(self, num_DNA_filters, DNA_kernel_size, DNA_dropout):
         super().__init__()
@@ -126,7 +136,11 @@ class DNA_branch(nn.Module):
 
 class PlmbindFullModel(pl.LightningModule):
     """
-    Still have to add this.
+    Implement:
+        - Weighting the loss function: NOT TESTED YET
+        - sub sampling the TFs
+        - focal loss: NOT TESTED YET
+        - different protein branches??
     """
     def __init__(
         self,
@@ -140,16 +154,30 @@ class PlmbindFullModel(pl.LightningModule):
         DNA_dropout=0.25,
         protein_dropout=0.25,
         linear_layer_size_prot = 64,
-        final_embeddings_size=64,
-        learning_rate=1e-5,
+        final_embeddings_size = 64,
+        learning_rate_protein_branch=1e-5,
+        learning_rate_DNA_branch=1e-5,
         calculate_val_tf_loss = True,
-        DNA_branch_path = "None"
+        DNA_branch_path = "None",
+        loss_function = "BCE",
+        loss_weights = None,
+        gamma = 2
+        
     ):
         super(PlmbindFullModel, self).__init__()
-        self.learning_rate = learning_rate
+        self.learning_rate_protein_branch = learning_rate_protein_branch
+        self.learning_rate_DNA_branch = learning_rate_DNA_branch
         self.calculate_val_tf_loss = calculate_val_tf_loss
+        self.gamma = gamma
         # Define metrics and loss function
-        self.loss_function = nn.BCEWithLogitsLoss()
+        if loss_function == "BCE":
+            self.loss_function = nn.BCEWithLogitsLoss()
+        elif loss_function =="weighted_BCE":
+            self.loss_weights = loss_weights
+            self.loss_function = nn.BCEWithLogitsLoss(pos_weight = torch.tensor(loss_weights))
+        elif loss_function == "focal":
+            self.loss_function = FocalLoss(self.gamma) # GAAT NOG ERROR GEVEN DOOR DAT FLOAT 
+            
         self.seq_len = seq_len
         nucleotide_weights = torch.FloatTensor(
             [[1, 0, 0, 0],
@@ -242,7 +270,11 @@ class PlmbindFullModel(pl.LightningModule):
         return x_product
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = optim.Adam([
+            {"params":self.DNA_branch.parameters(), "lr":self.learning_rate_DNA_branch},
+            {"params":self.conv_net_final_layer.parameters(), "lr":self.learning_rate_DNA_branch},
+            {"params":self.conv_net_proteins.parameters(), "lr":self.learning_rate_protein_branch}
+            ])
         return optimizer
 
     def training_step(self, train_batch, batch_idx):
@@ -282,16 +314,6 @@ class PlmbindFullModel(pl.LightningModule):
     def get_TF_latent_vector(self, TF_emb):
         return self.conv_net_proteins(TF_emb.permute(0, 2, 1))
 
-def focal_loss(y_hat, y, gamma):
-    return -(y.float()*(1-y_hat.float().sigmoid())**(gamma)*y_hat.float().sigmoid().log()+(1-y.float())*(y_hat.float().sigmoid())**(gamma)*(1-y_hat.float().sigmoid()).log()).mean()
-    
-class FocalLoss(nn.Module):
-    def __init__(self):
-        super(FocalLoss, self).__init__()
-
-    def forward(self, y_hat, y, gamma):
-        loss = -(y.float()*(1-y_hat.float().sigmoid())**(gamma)*y_hat.float().sigmoid().log()+(1-y.float())*(y_hat.float().sigmoid())**(gamma)*(1-y_hat.float().sigmoid()).log())
-        return loss.mean()
     
 class PlmbindFullModel_focal(pl.LightningModule):
     """

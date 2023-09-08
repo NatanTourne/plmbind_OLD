@@ -36,7 +36,10 @@ parser.add_argument("--prot_dropout", type=float, default=0.4)
 parser.add_argument("--DNA_dropout", type=float, default=0.25)
 parser.add_argument("--latent_vector_size", type=int, default=128)
 parser.add_argument("--calculate_val_TF_loss", type=bool, default=True)
-parser.add_argument("--learning_rate", type=float, default=0.00001)
+parser.add_argument("--learning_rate_DNA_branch", type=float, default=0.00001)
+parser.add_argument("--learning_rate_protein_branch", type=float, default=0.00001)
+parser.add_argument("--loss_function", default="BCE")
+parser.add_argument("--focal_loss_gamma", default=2)
 
 parser.add_argument("--max_epochs", type=int, default=1000)
 parser.add_argument("--limit_train_batches", type=float, default=1.0)
@@ -107,8 +110,11 @@ Full_model = PlmbindFullModel(
         protein_dropout=args.prot_dropout,
         final_embeddings_size=args.latent_vector_size,
         calculate_val_tf_loss=args.calculate_val_TF_loss,
-        learning_rate=args.learning_rate,
-        DNA_branch_path = args.pre_trained_DNA_branch
+        learning_rate_protein_branch=args.learning_rate_protein_branch,
+        learning_rate_DNA_branch=args.learning_rate_DNA_branch,
+        DNA_branch_path = args.pre_trained_DNA_branch,
+        loss_function = args.loss_function,
+        gamma=args.focal_loss_gamma
         )
 
 
