@@ -1,10 +1,86 @@
 import numpy as np
 import h5torch
+from pytorch_lightning.utilities.types import TRAIN_DATALOADERS
 import torch
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split
 from h5torch.dataset import apply_dtype
 import random
+
+class SampleProcessor_Contrastive(object):
+    def __init__(self, TF_list=None):
+        self.TF_list = TF_list # MOETEN DUS DE INDEXEN ZIJN!
+    def __call__(self, f, sample):
+        x = sample["0/DNA"]
+        y = sample["central"]
+        if self.TF_list != None:
+            y = y[self.TF_list]
+        return x,torch.tensor(np.array(self.Used_embeddings)), y
+
+def sample_processor(f, sample):
+    # HIER TOEVOEGEN DAT ENKEL DE JUISTE TFs WORDEN MEE GEGEVEN
+    x = sample["0/DNA"]
+    y = sample["central"]
+    return x, y
+
+class ReMapDataModule_contrastive(pl.LightningDataModule):
+    def __init__(
+        self,
+        train_loc,
+        val_loc,
+        test_loc,
+        train_TFs = None,
+        val_TFs = None,
+        embeddings = None,
+        TF_batch_size=0,
+        batch_size: int = 32,
+        num_workers = 3
+    ):
+        super().__init__()
+        self.train_loc = train_loc
+        self.val_loc = val_loc
+        self.test_loc = test_loc
+        self.batch_size = batch_size
+        self.train_TFs = train_TFs
+        self.val_TFs = val_TFs
+        self.TF_batch_size = TF_batch_size
+        self.embeddings = embeddings
+        self.num_workers = num_workers
+        
+        self.train_data = h5torch.Dataset(self.train_loc, sample_processor=sample_processor)
+        self.val_data = h5torch.Dataset(self.val_loc, sample_processor=sample_processor)
+        self.test_data = h5torch.Dataset(self.test_loc, sample_processor=sample_processor)
+        
+    def setup(self, stage=None):
+        pass
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_data,
+            batch_size=self.batch_size,
+            shuffle=True,
+            pin_memory=True, # ???
+            num_workers=self.num_workers, # ????
+            collate_fn=Collater2_0(self.train_loc, self.train_TFs, self.embeddings, TF_batch_size = self.TF_batch_size)
+        )
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_data,
+            batch_size=self.batch_size,
+            shuffle=False,
+            pin_memory=True, # ???
+            num_workers=self.num_workers, # ????
+            collate_fn=Collater_val2_0(self.val_loc, self.TF_list, self.val_list, self.embeddings, TF_batch_size = self.TF_batch_size)
+        )
+    def test_dataloader(self):
+        return DataLoader(
+            self.test_data,
+            batch_size=self.batch_size,
+            shuffle=False,
+            pin_memory=True, # ???
+            num_workers=self.num_workers, # ????,
+            collate_fn=Collater2_0(self.test_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
+        )
+    
 
 class ReMapDataModule2_0(pl.LightningDataModule):
     def __init__(

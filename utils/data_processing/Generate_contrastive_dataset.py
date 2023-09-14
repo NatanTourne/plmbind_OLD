@@ -93,7 +93,7 @@ for chrom_name in chroms: # Go through each of the chromosomes that were selecte
             cols.append([prot_db[i] for i in TFs.split(",")])
     # fetch the DNA sequences corresponding to the indexes        
     chrom = np.array([mapping[l] for l in tb.sequence(chrom_name)], dtype=np.int8)
-    DNA_frames.extend([chrom[i[1]:i[2]] for i in chrom_rows])
+    DNA_frames.extend([chrom[i[1]:i[2]] if chrom[i[1]:i[2]].shape[0] == desired_length else np.concatenate((chrom[i[1]:i[2]],(desired_length-chrom[i[1]:i[2]].shape[0])*[4])) for i in chrom_rows])
     rows.extend(chrom_rows)
     
 # Create the data matrix from the indices

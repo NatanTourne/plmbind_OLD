@@ -134,13 +134,234 @@ class DNA_branch(nn.Module):
                 Permute(0,2,1),
                 nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
                 nn.ReLU(),
-                nn.MaxPool1d(2),
-                nn.Dropout(DNA_dropout),
-                Crop(4)
+                nn.MaxPool1d(2)
         )
     def forward(self, x):
         return self.conv_net(x)
 
+class DNA_branch_contrastive(nn.Module):
+    def __init__(self, num_DNA_filters, DNA_kernel_size, DNA_dropout):
+        super().__init__()
+        self.conv_net = nn.Sequential(
+                nn.Conv1d(4, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+                nn.Dropout(DNA_dropout),
+                
+                ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
+                ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
+                
+                Permute(0,2,1),
+                nn.LayerNorm(num_DNA_filters),
+                Permute(0,2,1),
+                nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+                nn.Dropout(DNA_dropout),
+                
+                ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
+                
+                Permute(0,2,1),
+                nn.LayerNorm(num_DNA_filters),
+                Permute(0,2,1),
+                nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+                nn.Dropout(DNA_dropout),
+                
+                ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
+                
+                Permute(0,2,1),
+                nn.LayerNorm(num_DNA_filters),
+                Permute(0,2,1),
+                nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+                nn.Dropout(DNA_dropout),
+                
+                ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
+                
+                Permute(0,2,1),
+                nn.LayerNorm(num_DNA_filters),
+                Permute(0,2,1),
+                nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+                nn.Dropout(DNA_dropout),
+                
+                ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
+                
+                Permute(0,2,1),
+                nn.LayerNorm(num_DNA_filters),
+                Permute(0,2,1),
+                nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+                nn.Dropout(DNA_dropout),
+                
+                ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
+                
+                Permute(0,2,1),
+                nn.LayerNorm(num_DNA_filters),
+                Permute(0,2,1),
+                nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
+                nn.ReLU(),
+                nn.GlobalPool()
+        )
+    def forward(self, x):
+        return self.conv_net(x)
+    
+class PlmbindContrastive(pl.LightningDataModule):
+    def __init__(
+        self,
+        seq_len,
+        prot_embedding_dim,
+        num_DNA_filters=20,
+        num_prot_filters=20,
+        DNA_kernel_size=10,
+        prot_kernel_size=10,
+        initial_prot_kernel_size=1,
+        DNA_dropout=0.25,
+        protein_dropout=0.25,
+        linear_layer_size_prot = 64,
+        final_embeddings_size = 64,
+        learning_rate_protein_branch=1e-5,
+        learning_rate_DNA_branch=1e-5,
+        calculate_val_tf_loss = False,
+        DNA_branch_path = "None",
+        loss_function = "BCE",
+        loss_weights = None,
+        gamma = 2
+        
+    ):
+        super(PlmbindContrastive, self).__init__()
+        self.learning_rate_protein_branch = learning_rate_protein_branch
+        self.learning_rate_DNA_branch = learning_rate_DNA_branch
+        self.calculate_val_tf_loss = calculate_val_tf_loss
+        self.gamma = gamma
+        # Define metrics and loss function
+        if loss_function == "BCE":
+            self.loss_function = nn.BCEWithLogitsLoss()
+        elif loss_function =="weighted_BCE":
+            self.loss_weights = loss_weights
+            self.loss_function = nn.BCEWithLogitsLoss(pos_weight = torch.tensor(loss_weights))
+        elif loss_function == "focal":
+            self.loss_function = FocalLoss(self.gamma) # GAAT NOG ERROR GEVEN DOOR DAT FLOAT 
+        elif loss_function == "filtered_BCE":
+            self.loss_function = filteredBCE()
+            
+        self.seq_len = seq_len
+        nucleotide_weights = torch.FloatTensor(
+            [[1, 0, 0, 0],
+             [0, 1, 0, 0],
+             [0, 0, 1, 0],
+             [0, 0, 0, 1],
+             [0, 0, 0, 0]]
+            )
+        self.embedding = nn.Embedding.from_pretrained(nucleotide_weights)
+        self.DNA_branch = DNA_branch_contrastive(num_DNA_filters, DNA_kernel_size, DNA_dropout)
+        self.conv_net_proteins = nn.Sequential(
+            nn.Conv1d(prot_embedding_dim, int(prot_embedding_dim/4), kernel_size = initial_prot_kernel_size, padding="same"),
+            nn.ReLU(),
+            nn.Dropout(protein_dropout),
+            
+            Permute(0,2,1),
+            nn.LayerNorm(int(prot_embedding_dim/4)),
+            Permute(0,2,1),
+            nn.Conv1d(int(prot_embedding_dim/4), int(prot_embedding_dim/8), initial_prot_kernel_size, padding="same"),
+            nn.ReLU(),
+            nn.Dropout(protein_dropout),
+            
+            Permute(0,2,1),
+            nn.LayerNorm(int(prot_embedding_dim/8)),
+            Permute(0,2,1),
+            nn.Conv1d(int(prot_embedding_dim/8), num_prot_filters, initial_prot_kernel_size, padding="same"),
+            nn.ReLU(),
+            nn.Dropout(protein_dropout),
+            
+            ResidualBlock(num_prot_filters, prot_kernel_size, protein_dropout),
+            ResidualBlock(num_prot_filters, prot_kernel_size, protein_dropout),
+            ResidualBlock(num_prot_filters, prot_kernel_size, protein_dropout),
+
+            GlobalPool(pooled_axis = 2, mode = 'max'),
+            nn.Flatten(),
+            
+            nn.LayerNorm(num_prot_filters), # before or after linear layer??
+            nn.Linear(num_prot_filters,linear_layer_size_prot),
+            nn.Dropout(protein_dropout),
+            nn.ReLU(),
+            
+            nn.LayerNorm(linear_layer_size_prot),
+            nn.Linear(linear_layer_size_prot, linear_layer_size_prot),
+            nn.Dropout(protein_dropout),
+            nn.ReLU(),
+            
+            nn.LayerNorm(linear_layer_size_prot),
+            nn.Linear(linear_layer_size_prot, linear_layer_size_prot),
+            nn.Dropout(protein_dropout),
+            nn.ReLU(),
+            
+            nn.LayerNorm(linear_layer_size_prot),
+            nn.Linear(linear_layer_size_prot, linear_layer_size_prot),
+            nn.Dropout(protein_dropout),
+            nn.ReLU(),
+            
+            nn.LayerNorm(linear_layer_size_prot),
+            nn.Linear(linear_layer_size_prot, final_embeddings_size)
+        )
+        self.save_hyperparameters()
+    def forward(self, x_DNA_in, x_prot_in):
+        x_DNA = self.DNA_branch(self.embedding(x_DNA_in).permute(0, 2, 1))
+
+        x_prot = self.conv_net_proteins(x_prot_in.permute(0, 2, 1)) 
+    
+        x_product = torch.einsum("b h l, c h -> b c l", x_DNA, x_prot)
+
+        return x_product
+    
+    def configure_optimizers(self):
+        optimizer = optim.Adam([
+            {"params":self.DNA_branch.parameters(), "lr":self.learning_rate_DNA_branch},
+            {"params":self.conv_net_proteins.parameters(), "lr":self.learning_rate_protein_branch}
+            ])
+        return optimizer
+    
+    def training_step(self, train_batch, batch_idx):
+        x_DNA, x_prot, y = train_batch
+        y_hat = self(x_DNA, x_prot)
+        loss = self.loss_function(y_hat, y.float())
+        self.log('train_loss', loss)
+        return loss
+
+    def test_step(self, test_batch, batch_idx):
+        x_DNA, x_prot, y = test_batch
+        y_hat = self.forward(x_DNA, x_prot)
+        loss = self.loss_function(y_hat, y.float())
+        self.log('test_loss', loss)
+        return loss
+
+    def validation_step(self, valid_batch, batch_idx):
+        x_DNA, x_prot, y, x_prot_val, y_val = valid_batch
+        y_hat = self.forward(x_DNA, x_prot)
+        loss = self.loss_function(y_hat, y.float())
+        self.log('val_loss_DNA', loss)
+        
+        if self.calculate_val_tf_loss:
+            y_hat_val = self.forward(x_DNA, x_prot_val)
+            loss_val = self.loss_function(y_hat_val, y_val.float())
+            self.log('val_loss_TF', loss_val)
+
+        return loss
+        
+    def predict_step(self, batch, batch_idx):
+        x_DNA, x_prot, y = batch
+        y_hat = self.forward(x_DNA, x_prot)
+        y_hat_sigmoid = torch.sigmoid(y_hat).detach()
+        return y.to(torch.int8), y_hat.to(torch.float16), y_hat_sigmoid.to(torch.float16)
+        #return y, y_hat, y_hat_sigmoid
+    
+    def get_TF_latent_vector(self, TF_emb):
+        return self.conv_net_proteins(TF_emb.permute(0, 2, 1))
 
 class PlmbindFullModel(pl.LightningModule):
     """
