@@ -14,12 +14,14 @@ class Crop(nn.Module):
     def forward(self, x):
         return x[..., self.n:-self.n]
     
+    
 class Permute(nn.Module): 
     def __init__(self, *args):
         super().__init__()
         self.args = args
     def forward(self, x):
         return x.permute(*self.args)
+    
     
 class ResidualBlock(nn.Module):
     def __init__(self, hidden_dim = 64, kernel_size = 5, dropout = 0.2): # a simple residual block
@@ -38,6 +40,7 @@ class ResidualBlock(nn.Module):
     def forward(self, x):
         return self.net(x) + x #residual connection
     
+    
 class GlobalPool(nn.Module):
     def __init__(self, pooled_axis = 1, mode = "max"):
         super().__init__()
@@ -49,6 +52,7 @@ class GlobalPool(nn.Module):
     def forward(self, x):
         return self.op(x)
 
+
 class FocalLoss(nn.Module):
     def __init__(self, gamma):
         super().__init__()
@@ -59,14 +63,51 @@ class FocalLoss(nn.Module):
         loss = -(y.float()*(1-y_hat.float().sigmoid())**(self.gamma)*y_hat.float().sigmoid().log()+(1-y.float())*(y_hat.float().sigmoid())**(self.gamma)*(1-y_hat.float().sigmoid()).log())
         return loss.mean()
     
+    
 class filteredBCE(nn.Module):
     def __init__(self):
         super().__init__()
         self.loss_function = nn.BCEWithLogitsLoss()
     def forward(self, y_hat, y):
-       
         return self.loss_function(y_hat.permute(1,0,2)[:,y.sum(dim=1)!=0], y.permute(1,0,2)[:,y.sum(dim=1)!=0].float())
 
+
+class BCE_CL_CL_mask(nn.Module):
+    def __init__(self, weights):
+        super().__init__()
+        self.CE_loss = nn.CrossEntropyLoss()
+        self.BCE_loss = nn.BCEWithLogitsLoss()
+        self.weights = weights
+    def forward(self, y_hat, y, mask):
+        
+        loss_1 = self.BCE_loss(y_hat, y)
+        loss_2 = self.CE_loss(y_hat, y)
+        loss_3 = self.CE_loss(y_hat.t(), y.t()) 
+        return self.weights[0]*loss_1 + self.weights[1]*loss_2 + self.weights[2]*loss_3
+
+class BCE_CL_CL_scale(nn.Module):
+    def __init__(self, weights):
+        super().__init__()
+        self.BCE_loss = nn.BCEWithLogitsLoss()
+        self.weights = weights
+        
+    def forward(self, y_hat, y):
+        
+        temp = -y_hat.softmax(axis=1).log() # remove the values corresponding to 0's
+        temp[y!=1] = float(0) # Calculate row wise sum and devide by number of zeros
+        temp = temp.sum(axis=1)/(temp!=0).sum(axis=1) # Drop Nans and Calculate mean (Dropping the NaNs is only needed because of the random spamling)
+        CL_loss_rows = temp[~temp.isnan()].mean()
+        
+        temp = -y_hat.softmax(axis=0).log()
+        temp[y!=1] = float(0)
+        temp = temp.sum(axis=0)/(temp!=0).sum(axis=0)
+        CL_loss_cols = temp[~temp.isnan()].mean()
+        
+        classification_loss = self.BCE_loss(y_hat, y)
+        
+        return self.weights[0]*classification_loss + self.weights[1]*CL_loss_rows + self.weights[2]*CL_loss_cols
+
+    
 class DNA_branch(nn.Module):
     def __init__(self, num_DNA_filters, DNA_kernel_size, DNA_dropout):
         super().__init__()
@@ -140,12 +181,12 @@ class DNA_branch(nn.Module):
         return self.conv_net(x)
 
 class DNA_branch_contrastive(nn.Module):
-    def __init__(self, num_DNA_filters, DNA_kernel_size, DNA_dropout):
+    def __init__(self, num_DNA_filters, DNA_kernel_size, DNA_dropout, final_embedding_layer):
         super().__init__()
         self.conv_net = nn.Sequential(
                 nn.Conv1d(4, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
                 nn.ReLU(),
-                nn.MaxPool1d(2),
+                #nn.MaxPool1d(2),
                 nn.Dropout(DNA_dropout),
                 
                 ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
@@ -156,7 +197,7 @@ class DNA_branch_contrastive(nn.Module):
                 Permute(0,2,1),
                 nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
                 nn.ReLU(),
-                nn.MaxPool1d(2),
+                #nn.MaxPool1d(2),
                 nn.Dropout(DNA_dropout),
                 
                 ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
@@ -166,7 +207,7 @@ class DNA_branch_contrastive(nn.Module):
                 Permute(0,2,1),
                 nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
                 nn.ReLU(),
-                nn.MaxPool1d(2),
+                #nn.MaxPool1d(2),
                 nn.Dropout(DNA_dropout),
                 
                 ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
@@ -176,7 +217,7 @@ class DNA_branch_contrastive(nn.Module):
                 Permute(0,2,1),
                 nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
                 nn.ReLU(),
-                nn.MaxPool1d(2),
+                #nn.MaxPool1d(2),
                 nn.Dropout(DNA_dropout),
                 
                 ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
@@ -186,7 +227,7 @@ class DNA_branch_contrastive(nn.Module):
                 Permute(0,2,1),
                 nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
                 nn.ReLU(),
-                nn.MaxPool1d(2),
+                #nn.MaxPool1d(2),
                 nn.Dropout(DNA_dropout),
                 
                 ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
@@ -196,7 +237,7 @@ class DNA_branch_contrastive(nn.Module):
                 Permute(0,2,1),
                 nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
                 nn.ReLU(),
-                nn.MaxPool1d(2),
+                #nn.MaxPool1d(2),
                 nn.Dropout(DNA_dropout),
                 
                 ResidualBlock(num_DNA_filters, DNA_kernel_size, DNA_dropout),
@@ -204,17 +245,16 @@ class DNA_branch_contrastive(nn.Module):
                 Permute(0,2,1),
                 nn.LayerNorm(num_DNA_filters),
                 Permute(0,2,1),
-                nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
+                nn.Conv1d(num_DNA_filters, final_embedding_layer, kernel_size=DNA_kernel_size, padding="same"),
                 nn.ReLU(),
-                nn.GlobalPool()
+                GlobalPool(pooled_axis = 2)
         )
     def forward(self, x):
         return self.conv_net(x)
     
-class PlmbindContrastive(pl.LightningDataModule):
+class PlmbindContrastive(pl.LightningModule):
     def __init__(
         self,
-        seq_len,
         prot_embedding_dim,
         num_DNA_filters=20,
         num_prot_filters=20,
@@ -230,27 +270,19 @@ class PlmbindContrastive(pl.LightningDataModule):
         calculate_val_tf_loss = False,
         DNA_branch_path = "None",
         loss_function = "BCE",
-        loss_weights = None,
-        gamma = 2
-        
+        loss_weights = None
     ):
         super(PlmbindContrastive, self).__init__()
         self.learning_rate_protein_branch = learning_rate_protein_branch
         self.learning_rate_DNA_branch = learning_rate_DNA_branch
         self.calculate_val_tf_loss = calculate_val_tf_loss
-        self.gamma = gamma
         # Define metrics and loss function
+        #self.loss_function = nn.BCEWithLogitsLoss()
         if loss_function == "BCE":
             self.loss_function = nn.BCEWithLogitsLoss()
-        elif loss_function =="weighted_BCE":
-            self.loss_weights = loss_weights
-            self.loss_function = nn.BCEWithLogitsLoss(pos_weight = torch.tensor(loss_weights))
-        elif loss_function == "focal":
-            self.loss_function = FocalLoss(self.gamma) # GAAT NOG ERROR GEVEN DOOR DAT FLOAT 
-        elif loss_function == "filtered_BCE":
-            self.loss_function = filteredBCE()
-            
-        self.seq_len = seq_len
+        elif loss_function == "BCE_CL_CL_scaled":
+            self.loss_function = BCE_CL_CL_scale(loss_weights)
+        
         nucleotide_weights = torch.FloatTensor(
             [[1, 0, 0, 0],
              [0, 1, 0, 0],
@@ -259,7 +291,7 @@ class PlmbindContrastive(pl.LightningDataModule):
              [0, 0, 0, 0]]
             )
         self.embedding = nn.Embedding.from_pretrained(nucleotide_weights)
-        self.DNA_branch = DNA_branch_contrastive(num_DNA_filters, DNA_kernel_size, DNA_dropout)
+        self.DNA_branch = DNA_branch_contrastive(num_DNA_filters, DNA_kernel_size, DNA_dropout, final_embeddings_size)
         self.conv_net_proteins = nn.Sequential(
             nn.Conv1d(prot_embedding_dim, int(prot_embedding_dim/4), kernel_size = initial_prot_kernel_size, padding="same"),
             nn.ReLU(),
@@ -312,10 +344,12 @@ class PlmbindContrastive(pl.LightningDataModule):
         self.save_hyperparameters()
     def forward(self, x_DNA_in, x_prot_in):
         x_DNA = self.DNA_branch(self.embedding(x_DNA_in).permute(0, 2, 1))
-
-        x_prot = self.conv_net_proteins(x_prot_in.permute(0, 2, 1)) 
+        x_prot = self.conv_net_proteins(x_prot_in.permute(0, 2, 1))
+        
+        x_DNA = nn.functional.normalize(x_DNA, dim=1)
+        x_prot = nn.functional.normalize(x_prot, dim=1)
     
-        x_product = torch.einsum("b h l, c h -> b c l", x_DNA, x_prot)
+        x_product = torch.einsum("b h, c h -> b c", x_DNA, x_prot)
 
         return x_product
     

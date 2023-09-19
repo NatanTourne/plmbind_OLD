@@ -10,7 +10,7 @@ import requests
 from tqdm import tqdm, trange
 
 used_model = "facebook/esm2_t6_8M_UR50D" #"facebook/esm2_t12_35M_UR50D" #"facebook/esm2_t30_150M_UR50D" #"facebook/esm2_t6_8M_UR50D"
-h5_path = "/home/data/shared/natant/Data/train_no_alts.h5t"
+h5_path = "/home/data/shared/natant/Data/contrastive_train_no_alts.h5t"
 seqs_path = "/home/natant/Thesis-plmbind/Testing_ground/sequences.fasta"
 embeddings_name = "t6_320_pad_trun"#"t30_640_pad_trun" # "t12_480_pad_trun" # "t6_320_pad_trun" # "t33_1280_pad_trun"
 f = h5torch.File(h5_path, "a")
@@ -34,13 +34,13 @@ f.register(np.array(embeddings), axis = "unstructured", mode="separate", name=em
 f.close()
 print("done")
 
-h5_path = "/home/data/shared/natant/Data/test_no_alts.h5t"
+h5_path = "/home/data/shared/natant/Data/contrastive_test_no_alts.h5t"
 f = h5torch.File(h5_path, "a")
 f.register(np.array(embeddings), axis = "unstructured", mode="separate", name=embeddings_name, dtype_save = "float32", dtype_load = "float32")
 f.close()
 print("done")
 
-h5_path = "/home/data/shared/natant/Data/val_no_alts.h5t"
+h5_path = "/home/data/shared/natant/Data/contrastive_val_no_alts.h5t"
 f = h5torch.File(h5_path, "a")
 f.register(np.array(embeddings), axis = "unstructured", mode="separate", name=embeddings_name, dtype_save = "float32", dtype_load = "float32")
 f.close()

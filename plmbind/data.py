@@ -69,7 +69,7 @@ class ReMapDataModule_contrastive(pl.LightningDataModule):
             shuffle=False,
             pin_memory=True, # ???
             num_workers=self.num_workers, # ????
-            collate_fn=Collater_val2_0(self.val_loc, self.TF_list, self.val_list, self.embeddings, TF_batch_size = self.TF_batch_size)
+            collate_fn=Collater_val2_0(self.val_loc, self.train_TFs, self.val_TFs, self.embeddings, TF_batch_size = self.TF_batch_size)
         )
     def test_dataloader(self):
         return DataLoader(
@@ -78,7 +78,7 @@ class ReMapDataModule_contrastive(pl.LightningDataModule):
             shuffle=False,
             pin_memory=True, # ???
             num_workers=self.num_workers, # ????,
-            collate_fn=Collater2_0(self.test_loc, self.TF_list, self.embeddings, TF_batch_size = self.TF_batch_size)
+            collate_fn=Collater2_0(self.test_loc, self.train_TFs, self.embeddings, TF_batch_size = self.TF_batch_size)
         )
     
 
