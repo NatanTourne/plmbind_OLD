@@ -175,7 +175,10 @@ class DNA_branch(nn.Module):
                 Permute(0,2,1),
                 nn.Conv1d(num_DNA_filters, num_DNA_filters, kernel_size=DNA_kernel_size, padding="same"),
                 nn.ReLU(),
-                nn.MaxPool1d(2)
+                nn.MaxPool1d(2),
+                nn.Dropout(DNA_dropout),
+                Crop(4)
+
         )
     def forward(self, x):
         return self.conv_net(x)
@@ -441,6 +444,8 @@ class PlmbindFullModel(pl.LightningModule):
             self.loss_function = FocalLoss(self.gamma) # GAAT NOG ERROR GEVEN DOOR DAT FLOAT 
         elif loss_function == "filtered_BCE":
             self.loss_function = filteredBCE()
+        elif loss_function == "BCE_CL_CL_scaled":
+            self.loss_function = BCE_CL_CL_scale(loss_weights)
             
         self.seq_len = seq_len
         nucleotide_weights = torch.FloatTensor(

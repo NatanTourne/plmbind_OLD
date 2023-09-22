@@ -61,10 +61,11 @@ date = datetime.now().strftime("%Y%m%d_%H:%M:%S")
 if args.out_dir[-1] != "/":
     args.out_dir = args.out_dir+"/"
 
-# settings = vars(args)
-# settings["date"] = date
-# settings_df = pd.DataFrame(settings, index=[0])
-# settings_df.to_csv(args.out_dir+"settings.csv")
+settings = vars(args)
+settings["date"] = date
+settings["loss_weights"] = [settings["loss_weights"]]
+settings_df = pd.DataFrame(settings, index=[0])
+settings_df.to_csv(args.out_dir+"settings.csv")
 
 
 Embeddings = "unstructured/" + args.emb
@@ -99,7 +100,7 @@ remap_datamodule = ReMapDataModule_contrastive(
     )
 
       
-
+print(args.loss_weights)
 Full_model = PlmbindContrastive( 
         prot_embedding_dim=args.emb_dim,
         num_DNA_filters=args.num_DNA_filters,
@@ -114,7 +115,7 @@ Full_model = PlmbindContrastive(
         learning_rate_DNA_branch=args.learning_rate_DNA_branch,
         DNA_branch_path = args.pre_trained_DNA_branch,
         loss_function=args.loss_function,
-        loss_weights = args.loss_weights
+        loss_weights = args.loss_weights[0]
         )
 
 
