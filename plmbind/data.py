@@ -34,7 +34,8 @@ class ReMapDataModule_contrastive(pl.LightningDataModule):
         embeddings = None,
         TF_batch_size=0,
         batch_size: int = 32,
-        num_workers = 3
+        num_workers = 3,
+        in_memory=False
     ):
         super().__init__()
         self.train_loc = train_loc
@@ -47,9 +48,9 @@ class ReMapDataModule_contrastive(pl.LightningDataModule):
         self.embeddings = embeddings
         self.num_workers = num_workers
         
-        self.train_data = h5torch.Dataset(self.train_loc, sample_processor=sample_processor)
-        self.val_data = h5torch.Dataset(self.val_loc, sample_processor=sample_processor)
-        self.test_data = h5torch.Dataset(self.test_loc, sample_processor=sample_processor)
+        self.train_data = h5torch.Dataset(self.train_loc, sample_processor=sample_processor, in_memory=in_memory)
+        self.val_data = h5torch.Dataset(self.val_loc, sample_processor=sample_processor, in_memory=in_memory)
+        self.test_data = h5torch.Dataset(self.test_loc, sample_processor=sample_processor, in_memory=False)
         
     def setup(self, stage=None):
         pass

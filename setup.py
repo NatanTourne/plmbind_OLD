@@ -17,6 +17,6 @@ setup(
         "numpy",
         "torch",
         "pytorch-lightning",
-        "h5torch==0.1.4"
+        "h5torch"
     ],
 )

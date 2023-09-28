@@ -72,18 +72,18 @@ class filteredBCE(nn.Module):
         return self.loss_function(y_hat.permute(1,0,2)[:,y.sum(dim=1)!=0], y.permute(1,0,2)[:,y.sum(dim=1)!=0].float())
 
 
-class BCE_CL_CL_mask(nn.Module):
-    def __init__(self, weights):
-        super().__init__()
-        self.CE_loss = nn.CrossEntropyLoss()
-        self.BCE_loss = nn.BCEWithLogitsLoss()
-        self.weights = weights
-    def forward(self, y_hat, y, mask):
+# class BCE_CL_CL_mask(nn.Module):
+#     def __init__(self, weights):
+#         super().__init__()
+#         self.CE_loss = nn.CrossEntropyLoss()
+#         self.BCE_loss = nn.BCEWithLogitsLoss()
+#         self.weights = weights
+#     def forward(self, y_hat, y, mask):
         
-        loss_1 = self.BCE_loss(y_hat, y)
-        loss_2 = self.CE_loss(y_hat, y)
-        loss_3 = self.CE_loss(y_hat.t(), y.t()) 
-        return self.weights[0]*loss_1 + self.weights[1]*loss_2 + self.weights[2]*loss_3
+#         loss_1 = self.BCE_loss(y_hat, y)
+#         loss_2 = self.CE_loss(y_hat, y)
+#         loss_3 = self.CE_loss(y_hat.t(), y.t()) 
+#         return self.weights[0]*loss_1 + self.weights[1]*loss_2 + self.weights[2]*loss_3
 
 class BCE_CL_CL_scale(nn.Module):
     def __init__(self, weights):
@@ -93,14 +93,21 @@ class BCE_CL_CL_scale(nn.Module):
         
     def forward(self, y_hat, y):
         
-        temp = -y_hat.softmax(axis=1).log() # remove the values corresponding to 0's
-        temp[y!=1] = float(0) # Calculate row wise sum and devide by number of zeros
-        temp = temp.sum(axis=1)/(temp!=0).sum(axis=1) # Drop Nans and Calculate mean (Dropping the NaNs is only needed because of the random spamling)
-        CL_loss_rows = temp[~temp.isnan()].mean()
-        
+        temp = -y_hat.softmax(axis=1).log()
+        temp[y!=1] = float(0) # remove the values corresponding to 0's
+        temp = temp.sum(axis=1)/((temp!=0).sum(axis=1)) # Calculate row wise sum and devide by number of zeros
+        CL_loss_rows = temp[~temp.isnan()].mean() # Drop Nans and Calculate mean (Dropping the NaNs is only needed because of the random spamling)
+
+        ## DEBUG ##
+        # temp = (-y_hat.softmax(axis=1).log())
+        # temp[y!=1] = float(0)
+        # CL_loss_rows = temp.mean()
+
+        ## DEBUG ##
+
         temp = -y_hat.softmax(axis=0).log()
         temp[y!=1] = float(0)
-        temp = temp.sum(axis=0)/(temp!=0).sum(axis=0)
+        temp = temp.sum(axis=0)/((temp!=0).sum(axis=0))
         CL_loss_cols = temp[~temp.isnan()].mean()
         
         classification_loss = self.BCE_loss(y_hat, y)
