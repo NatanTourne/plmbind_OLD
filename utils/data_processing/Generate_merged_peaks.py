@@ -1,17 +1,26 @@
-from numpy import isin
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("in_path")
+parser.add_argument("out_path")
+parser.add_argument("-type", default="REMAP")
+args = parser.parse_args()
 
 
 delta_list = []
 uniques_list = []
 count = 0
-with open("/home/data/shared/natant/Data/remap2022_nr_macs2_hg38_v1_0.bed") as f:
+with open(args.in_path) as f:
     for line in f:
         count += 1
-        if count > 100000000000000000:
+        if count > 100000000000000000: # JUST FOR DEBUGGING
             break
         
         line_list = line.split()
-        TF = line_list[3].split(':')[0]
+        if args.type == "REMAP":
+            TF = line_list[3].split(':')[0]
+        elif args.type == "REGULATORY":
+            TF = line_list[7]
         start = int(line_list[1])
         stop = int(line_list[2])
         pos = line_list[0:3]
@@ -27,7 +36,7 @@ with open("/home/data/shared/natant/Data/remap2022_nr_macs2_hg38_v1_0.bed") as f
                 delta_list.append(region_stop-region_start)
                 uniques_list.append(len(region_TFs))
 
-                with open("/home/data/shared/natant/Data/remap_merged_peaks.bed", 'a') as out_file:
+                with open(args.out_path, 'a') as out_file:
                     out_file.write(region_chrom + "\t" + str(region_start) + "\t" + str(region_stop) + "\t" + ",".join(region_TFs) + "\n")
                     
                 region_start = start

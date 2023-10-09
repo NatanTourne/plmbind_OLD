@@ -7,14 +7,16 @@ import py2bit
 parser = argparse.ArgumentParser()
 parser.add_argument("bed_path")
 parser.add_argument("genome_path")
+parser.add_argument("mask_path")
 parser.add_argument("out_path")
 parser.add_argument('-chrom', nargs="+", type=int)
 parser.add_argument('-NOTchrom', nargs="+", type=int)
 parser.add_argument('-alts')
 parser.add_argument("-all_TFs", default="/home/natant/Thesis-plmbind/Thesis/utils/TF_split/TF_data_split/ALL_TFs.txt")
+parser.add_argument("-NoMitochondrial", default=True)
 args = parser.parse_args()
 data = pd.read_csv(args.bed_path, sep = "\t", header = None)
-data.head()
+mask_data = pd.read_csv(args.mask_path, sep = "\t", header = None)
 
 TF_list = []
 with open(args.all_TFs) as f:
@@ -38,6 +40,10 @@ def get_chrom_number(chr):
     return num
 
 Unique_chrom_names = list(tb.chroms())
+
+if args.NoMitochondrial:
+    Unique_chrom_names = [i for i in Unique_chrom_names if i.split("_")[0][3:] != "M"]
+
 chrom_order = sorted(list(Unique_chrom_names), key=lambda x: get_chrom_number(x))
 print("Used chromosomes: ")
 if args.chrom != None:
@@ -59,10 +65,13 @@ else:
     raise SystemExit(1)
 
 
+
 # initialize final data objects:
 sequence_per_chrom = []
 rows_per_chrom = []
 cols_per_chrom = []
+rows_per_chrom_mask = []
+cols_per_chrom_mask = []
 for chrom_name in chroms:
     chrom_len = tb.chroms()[chrom_name]
     print(chrom_name)
@@ -95,6 +104,16 @@ for chrom_name in chroms:
         np.array([4] * (((chrom_len//128) + 1) * 128 - chrom_len), dtype = np.int8), # add N's to the end so the total sequence length is a multiple of 128
     ]).reshape(-1, 128))
 
+    # MASK
+    mask_subset = mask_data[mask_data[0] == chrom_name]
+    rows = []
+    cols = []
+    for ix, i in enumerate(range(len(mask_subset))):
+        start, stop, d = data_subset.iloc[i][[1, 2, 3]]
+        r = np.arange(start // 128, (stop // 128)+1)
+        rows.append(r) # add these new coordinates to rows
+    rows_per_chrom_mask.append(np.concatenate(rows))
+
 
 lens = [s.shape[0] for s in sequence_per_chrom]
 cumlens = np.cumsum([0] + lens)
@@ -105,8 +124,19 @@ from scipy.sparse import csr_matrix
 mat = csr_matrix(y) # make it sparse
 mat.indices = mat.indices.astype(np.int16)
 
+# mask 
+mask = np.zeros(sum(lens), dtype=np.bool_)
+for r, add in zip(rows_per_chrom_mask, cumlens):
+    mask[r+add] = True
+mask_sparse = csr_matrix(np.expand_dims(mask, axis=1))
+
+
+
 f = h5torch.File(args.out_path, "w")
 f.register(mat, axis = "central", mode = "csr", dtype_save = "bool", dtype_load = "int64")
+
+f.register(mask_sparse, axis = 0, name = "mask", mode = "csr", dtype_save = "bool", dtype_load = "int64")
+
 f.register(np.concatenate(sequence_per_chrom), axis = 0, name = "DNA", mode = "N-D", dtype_save = "int8", dtype_load = "int64")
 ix_to_prot = {v : k for k, v in prot_db.items()}
 prot_mapping = np.array([ix_to_prot[i] for i in range(len(prot_db))]).astype(bytes)

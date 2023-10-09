@@ -80,14 +80,13 @@ with open(args.Val_TFs_loc, "rb") as f:
 # Create datamodule: 
     # Seperate files for train, val, test
     # Protein embeddings are now specified (multiple sizes are possible)
-remap_datamodule = ReMapDataModule2_0(
+remap_datamodule =  ReMapDataModule_contrastive(
     train_loc=args.train_loc,
     val_loc=args.val_loc,
     test_loc=args.test_loc,
-    TF_list=train_TFs,
-    val_list=val_TFs,
+    train_TFs=train_TFs,
+    val_TFs=val_TFs,
     TF_batch_size=args.TF_batch_size, # PUT 0 WHEN YOU WANT TO USE ALL TFs
-    window_size=args.window_size,
     embeddings=Embeddings,
     batch_size=args.batch_size
     ) 
@@ -106,7 +105,7 @@ for file in os.listdir(args.out_dir):
         val_TF_loss_model_loc = args.out_dir+file
 
 ##### val_TF_loss_model ####
-Full_model = PlmbindFullModel.load_from_checkpoint(val_TF_loss_model_loc)
+Full_model = PlmbindContrastive.load_from_checkpoint(val_TF_loss_model_loc)
 
     
 # Processing Validation TFs
@@ -161,7 +160,7 @@ with open(args.out_dir + 'val_TF_loss_model_val_mean_embs.pkl', 'wb') as f:
     pickle.dump(val_mean_embs, f)
     
 
-Full_model = PlmbindFullModel.load_from_checkpoint(train_TF_loss_model_loc)
+Full_model = PlmbindContrastive.load_from_checkpoint(train_TF_loss_model_loc)
 
     
 # Processing Validation TFs

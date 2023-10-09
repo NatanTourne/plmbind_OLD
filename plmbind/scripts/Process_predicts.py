@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(
     description='Calculate AUROC and Average Precision')
 
 parser.add_argument("--out_dir", help="Directory for output files", required=True)
-parser.add_argument("--TF_info", help="human TF database csv", default = "/home/natant/Thesis-plmbind/Testing_ground/info.csv")
+parser.add_argument("--TF_info", help="human TF database csv", default = "/home/natant/Thesis-plmbind/Testing_ground/Thesis/info.csv")
 parser.add_argument("--Train_TFs_loc",help="Location of pickled list of train TFs", default = "/home/natant/Thesis-plmbind/Thesis/utils/TF_split/train_TFs")
 parser.add_argument("--Val_TFs_loc", help="Location of pickled list of validation TFs", default = "/home/natant/Thesis-plmbind/Thesis/utils/TF_split/val_TFs")
 parser.add_argument("--Test_TFs_loc", help="Location of pickled list of test TFs", default = "/home/natant/Thesis-plmbind/Thesis/utils/TF_split/test_TFs")
